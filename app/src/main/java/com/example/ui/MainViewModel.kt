@@ -82,9 +82,36 @@ data class Agent2DSettlementItem(
     val payout: Long,
     val profitLoss: Long
 )
+
+data class Agent2DSettlement(
+    val agentId: Int,
+    val agentName: String,
+    val commissionRate: Double,
+    val multiplier: Double,
+    val totalSales: Long,
+    val commissionAmount: Long,
+    val netSales: Long,
+    val winningBetAmount: Long,
+    val payoutAmount: Long,
+    val netBalance: Long // Net Sales - Payout
+)
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
+        fun sort2DNumbersWithWinning(
+            allNumbers: List<NumberSummary>,
+            winningNum: String?
+        ): List<NumberSummary> {
+            val cleanWin = winningNum?.trim()?.toAsciiDigits()
+            if (cleanWin.isNullOrEmpty() || cleanWin.length != 2 || !cleanWin.all { it.isDigit() }) {
+                return allNumbers.sortedBy { it.n }
+            }
+            val winItem = allNumbers.firstOrNull { it.n == cleanWin } ?: NumberSummary(cleanWin, 0, 0L, 0L, 0L)
+            val remaining = allNumbers.filter { it.n != cleanWin }.sortedBy { it.n }
+            return listOf(winItem) + remaining
+        }
+
         fun parseAmountOrZero(input: String): Long {
             val trimmed = input.trim().toAsciiDigits()
             if (trimmed.contains("/")) {
@@ -990,6 +1017,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getAll100Numbers(): List<NumberSummary> = getAggregatedNumbers(includeZeroBets = true)
 
+    fun sort2DNumbersWithWinning(
+        allNumbers: List<NumberSummary>,
+        winningNum: String?
+    ): List<NumberSummary> = Companion.sort2DNumbersWithWinning(allNumbers, winningNum)
+
     fun getFull2DNumbersList(): List<NumberRowItem2D> {
         return getAll100Numbers().map {
             NumberRowItem2D(number = it.n, totalAmount = it.totalBet)
@@ -1596,6 +1628,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 winBetAmount = winBetAmount,
                 payout = payout,
                 profitLoss = profitLoss
+            )
+        }
+    }
+
+    fun getAgent2DSettlements(winNum: String = getWinningNumberForCurrentSession()): List<Agent2DSettlement> {
+        val cleanWin = winNum.trim().toAsciiDigits()
+        val allVouchers = getFilteredVouchers()
+        val sess = _sessions.value.firstOrNull { it.name == _selectedSession.value }
+        val defaultRate = sess?.rate ?: 0.0
+        val defaultMult = sess?.mult ?: 0.0
+
+        val agentsList = _agents.value.toMutableList()
+        val knownIds = agentsList.map { it.id }.toSet()
+        val extraVouchers = allVouchers.filter { it.agentId !in knownIds }
+        extraVouchers.groupBy { it.agentId to it.agent }.forEach { (pair, _) ->
+            val (id, name) = pair
+            agentsList.add(Agent(id = id, name = name, rate = defaultRate, mult = defaultMult))
+        }
+
+        return agentsList.map { agent ->
+            val agentVouchers = allVouchers.filter { it.agentId == agent.id || it.agent == agent.name }
+            var totalSales = 0L
+            var winBetAmount = 0L
+            agentVouchers.forEach { v ->
+                v.items.forEach { item ->
+                    totalSales += item.a
+                    if (cleanWin.isNotEmpty() && item.n.toAsciiDigits() == cleanWin) {
+                        winBetAmount += item.a
+                    }
+                }
+            }
+            val effRate = if (agent.rate > 0.0) agent.rate else defaultRate
+            val effMult = if (agent.mult > 0.0) agent.mult else defaultMult
+            val commissionAmount = Math.round(totalSales.toDouble() * (effRate / 100.0))
+            val netSales = (totalSales - commissionAmount).coerceAtLeast(0L)
+            val payoutAmount = if (cleanWin.isNotEmpty() && effMult > 0.0) {
+                Math.round(winBetAmount.toDouble() * effMult)
+            } else 0L
+            val netBalance = netSales - payoutAmount
+
+            Agent2DSettlement(
+                agentId = agent.id,
+                agentName = agent.name,
+                commissionRate = effRate,
+                multiplier = effMult,
+                totalSales = totalSales,
+                commissionAmount = commissionAmount,
+                netSales = netSales,
+                winningBetAmount = winBetAmount,
+                payoutAmount = payoutAmount,
+                netBalance = netBalance
             )
         }
     }

@@ -88,17 +88,19 @@ fun NumbersScreen(
         formatWinningNumberTwoDigits(currentWinNum)
     }
 
-    val summaries = remember(vouchers, layoffs, selectedDate, selectedSession) {
+    val rawSummaries = remember(vouchers, layoffs, selectedDate, selectedSession) {
         viewModel.getAll100Numbers()
     }
 
-    val winningSummaryItem = remember(summaries, formattedWinNum, hasValidWinNum) {
+    val sortedSummaries = remember(rawSummaries, formattedWinNum, hasValidWinNum) {
         if (hasValidWinNum) {
-            summaries.firstOrNull { it.n == formattedWinNum }
-        } else null
+            viewModel.sort2DNumbersWithWinning(rawSummaries, formattedWinNum)
+        } else {
+            rawSummaries.sortedBy { it.n }
+        }
     }
 
-    val filteredSummaries = summaries.filter {
+    val filteredSummaries = sortedSummaries.filter {
         searchQuery.isBlank() || it.n.contains(searchQuery.trim().toAsciiDigits())
     }
 
@@ -189,97 +191,6 @@ fun NumbersScreen(
                     )
                 }
 
-                // Prominent Red Highlight Row at the top of the table when Winning Number is active/set
-                if (hasValidWinNum) {
-                    val winRowInteractionSource = remember { MutableInteractionSource() }
-                    val isWinRowPressed by winRowInteractionSource.collectIsPressedAsState()
-                    val winRowContentDesc = stringResource(R.string.winning_row_content_desc, formattedWinNum)
-                    // Combined total amount of (လက်ခံကွက် + တင်ကွက်) for this winning number
-                    val winTotalBetAmount = winningSummaryItem?.totalBet
-                        ?: viewModel.getWinningNumberBetAmountForCurrentSession(formattedWinNum)
-
-                    val winBgColor = if (isWinRowPressed) {
-                        Color(0xFFFECACA)
-                    } else {
-                        Color(0xFFFEE2E2)
-                    }
-                    val winBorderColor = Color(0xFFEF4444)
-                    val winTextColor = Color(0xFFDC2626)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .defaultMinSize(minHeight = 52.dp)
-                            .background(winBgColor)
-                            .border(width = 1.5.dp, color = winBorderColor)
-                            .clickable(
-                                interactionSource = winRowInteractionSource,
-                                indication = LocalIndication.current,
-                                onClick = {
-                                    viewModel.open2DSummaryFromWinningNumber(formattedWinNum, selectedSession)
-                                }
-                            )
-                            .semantics(mergeDescendants = true) {
-                                contentDescription = winRowContentDesc
-                                role = Role.Button
-                            }
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                            .testTag("highlighted_winning_number_row"),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.winning_summary_label),
-                            color = winTextColor,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("highlighted_winning_number_label")
-                        )
-
-                        Text(
-                            text = formattedWinNum,
-                            color = winTextColor,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 20.sp,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("highlighted_winning_number_value")
-                        )
-
-                        Row(
-                            modifier = Modifier.weight(1.4f),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = fmt(winTotalBetAmount),
-                                color = winTextColor,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 16.sp,
-                                maxLines = 1,
-                                softWrap = false,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.testTag("highlighted_winning_number_amount")
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = winTextColor,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-
                 if (filteredSummaries.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -307,12 +218,12 @@ fun NumbersScreen(
                                 else -> LuckyCardDark
                             }
                             val rowTextColor = when {
-                                isWinningRow -> Color(0xFFDC2626)
+                                isWinningRow -> Color(0xFFB91C1C)
                                 item.totalBet > 0L -> LuckyTextPrimary
                                 else -> LuckyTextMuted
                             }
                             val numTextColor = when {
-                                isWinningRow -> Color(0xFFDC2626)
+                                isWinningRow -> Color(0xFFB91C1C)
                                 item.totalBet > 0L -> LuckyHeader
                                 else -> LuckyTextSecondary
                             }
@@ -323,49 +234,96 @@ fun NumbersScreen(
                                     .background(rowBgColor)
                                     .then(
                                         if (isWinningRow) {
-                                            Modifier.border(1.dp, Color(0xFFEF4444))
+                                            Modifier.border(1.5.dp, Color(0xFFEF4444))
                                         } else {
                                             Modifier
                                         }
                                     )
                                     .clickable {
-                                        selectedNumberForBreakdown = item.n
+                                        if (isWinningRow) {
+                                            viewModel.open2DSummaryFromWinningNumber(item.n, selectedSession)
+                                        } else {
+                                            selectedNumberForBreakdown = item.n
+                                        }
                                     }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp)
-                                    .testTag("numbers_row_${item.n}"),
+                                    .testTag(if (isWinningRow) "highlighted_winning_number_row" else "numbers_row_${item.n}")
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "${index + 1}.",
-                                    color = if (isWinningRow) Color(0xFFDC2626) else LuckyTextSecondary,
-                                    fontWeight = if (isWinningRow) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                if (isWinningRow) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "${index + 1}.",
+                                            color = Color(0xFFB91C1C),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "[ ပေါက်သီး ]",
+                                            color = Color(0xFFB91C1C),
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = "${index + 1}.",
+                                        color = LuckyTextSecondary,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 13.sp,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
 
                                 Text(
                                     text = item.n,
                                     color = numTextColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
+                                    fontWeight = if (isWinningRow) FontWeight.ExtraBold else FontWeight.Bold,
+                                    fontSize = if (isWinningRow) 18.sp else 16.sp,
+                                    fontFamily = FontFamily.Monospace,
                                     maxLines = 1,
                                     softWrap = false,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .then(if (isWinningRow) Modifier.testTag("numbers_row_${item.n}") else Modifier)
                                 )
 
-                                Text(
-                                    text = fmt(item.totalBet),
-                                    color = rowTextColor,
-                                    fontWeight = if (item.totalBet > 0L || isWinningRow) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 15.sp,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    textAlign = TextAlign.End,
-                                    modifier = Modifier.weight(1.4f)
-                                )
+                                Row(
+                                    modifier = Modifier.weight(1.4f),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = fmt(item.totalBet),
+                                        color = rowTextColor,
+                                        fontWeight = if (item.totalBet > 0L || isWinningRow) FontWeight.ExtraBold else FontWeight.Normal,
+                                        fontSize = 15.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        textAlign = TextAlign.End
+                                    )
+                                    if (isWinningRow) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            tint = Color(0xFFB91C1C),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
                             }
                             HorizontalDivider(color = LuckyBorder.copy(alpha = 0.6f), thickness = 0.5.dp)
                         }

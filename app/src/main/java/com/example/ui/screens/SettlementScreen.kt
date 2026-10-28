@@ -46,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.Agent2DSettlement
 import com.example.ui.Agent2DSettlementItem
 import com.example.ui.MainViewModel
 import com.example.ui.components.*
@@ -805,6 +806,27 @@ fun formatAgent2DSettlementClipboardText(
     date: String,
     session: String,
     winningNumber: String,
+    item: Agent2DSettlement
+): String {
+    val winDisplay = winningNumber.ifEmpty { "-" }
+    val isProfit = item.netBalance >= 0L
+    return buildString {
+        append("2D အရှုံး/အမြတ် စာရင်းရှင်းတမ်း\n")
+        append("ရက်စွဲ : $date ($session)\n")
+        append("အမည်= ${item.agentName}\n")
+        append("စုစုပေါင်းရောင်းကြေး = ${fmt(item.totalSales)}\n")
+        append("ကော်မရှင် (${fmt(item.commissionRate)}%) = ${fmt(item.commissionAmount)}\n")
+        append("ကော်နုတ်ပြီး = ${fmt(item.netSales)}\n")
+        append("ပေါက်သီး($winDisplay) = ${fmt(item.winningBetAmount)}\n")
+        append("လျော်ကြေး (${fmt(item.multiplier)} ဆ) = ${fmt(item.payoutAmount)}\n")
+        append("အရှုံး / အမြတ် = ${if (isProfit) "+" else "-"}${fmt(abs(item.netBalance))}")
+    }
+}
+
+fun formatAgent2DSettlementClipboardText(
+    date: String,
+    session: String,
+    winningNumber: String,
     item: Agent2DSettlementItem
 ): String {
     val winDisplay = winningNumber.ifEmpty { "-" }
@@ -836,44 +858,24 @@ fun AgentSettlementScreen(viewModel: MainViewModel) {
     val availableRounds = remember(sessions, selectedDate, vouchers, wins, settled) {
         viewModel.getAvailableRoundsForDate(selectedDate)
     }
-    val hasRound = selectedSession.isNotBlank() && (sessions.any { it.name == selectedSession } || availableRounds.contains(selectedSession))
-    val noRoundsText = stringResource(R.string.no_rounds_yet)
 
-    val currentWin = remember(wins, selectedDate, selectedSession, hasRound, activeWinFromFlowA) {
+    val currentWin = remember(wins, selectedDate, selectedSession, activeWinFromFlowA) {
         val sessionWin = viewModel.getWinningNumberForCurrentSession()
         sessionWin.ifEmpty { activeWinFromFlowA.orEmpty() }
     }
 
     val agentItems = remember(agents, vouchers, selectedDate, selectedSession, currentWin) {
-        viewModel.getAgent2DSettlementList(currentWin)
-    }
-
-    val totalWinningBetAmount = remember(agentItems, vouchers, selectedDate, selectedSession, currentWin) {
-        val fromAgents = agentItems.sumOf { it.winBetAmount }
-        if (fromAgents > 0L || agentItems.isNotEmpty()) {
-            fromAgents
-        } else {
-            viewModel.getWinningNumberBetAmountForCurrentSession(currentWin)
-        }
-    }
-
-    fun formatAgentSettlementShare(item: Agent2DSettlementItem): String {
-        return formatAgent2DSettlementClipboardText(
-            date = selectedDate,
-            session = selectedSession.ifEmpty { noRoundsText },
-            winningNumber = currentWin,
-            item = item
-        )
+        viewModel.getAgent2DSettlements(currentWin)
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(LuckyBg)
+            .testTag("agent_settlement_screen")
     ) {
-        // Screen renamed from "2D စာရင်းချုပ်" to "ကော်မရှင်တနေ့သာစာရင်း"
         AppHeader(
-            title = stringResource(R.string.winning_summary_title_2d),
+            title = stringResource(R.string.agent_settlement_title),
             selectedSession = selectedSession,
             sessions = sessions,
             onSessionSelected = { viewModel.setSession(it) },
@@ -890,13 +892,47 @@ fun AgentSettlementScreen(viewModel: MainViewModel) {
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Styled Winning-Number Summary Header Card at the top of "ကော်မရှင်တနေ့သာစာရင်း"
+            // Header / Top Status Banner:
+            // Sage green container #E8F5E9, dark green border #2E7D32
+            // Text: "ထွက်ဂဏန်း (ပေါက်သီး) : $currentWin" (Bold Red #DC2626)
+            // Subtext: "ရက်စွဲ : $selectedDate | အချိန် : $selectedSession"
             item {
-                WinningNumberSummaryHeaderCard(
-                    winningNumber = currentWin,
-                    winningBetAmount = totalWinningBetAmount,
-                    roundName = if (hasRound) selectedSession else ""
-                )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.5.dp, Color(0xFF2E7D32), RoundedCornerShape(12.dp))
+                        .testTag("agent_settlement_top_banner"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val displayWin = if (currentWin.isNotBlank()) currentWin else "-"
+                        Text(
+                            text = "ထွက်ဂဏန်း (ပေါက်သီး) : $displayWin",
+                            color = Color(0xFFDC2626),
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.testTag("agent_settlement_win_display")
+                        )
+                        Text(
+                            text = "ရက်စွဲ : $selectedDate | အချိန် : ${selectedSession.ifEmpty { "-" }}",
+                            color = Color(0xFF1B5E20),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.testTag("agent_settlement_date_session_display")
+                        )
+                    }
+                }
             }
 
             if (agentItems.isEmpty()) {
@@ -904,13 +940,17 @@ fun AgentSettlementScreen(viewModel: MainViewModel) {
                     EmptyStateView(message = "ကော်မရှင် စာရင်း မရှိသေးပါ")
                 }
             } else {
-                items(agentItems, key = { it.agent.id }) { item ->
-                    val isProfit = item.profitLoss >= 0
-                    val statusColor = if (isProfit) LuckySuccess else LuckyDanger
+                itemsIndexed(agentItems, key = { _, item -> item.agentId }) { index, item ->
+                    val isProfit = item.netBalance >= 0L
+                    val balanceBg = if (isProfit) Color(0xFFE8F5E9) else Color(0xFFFEE2E2)
+                    val balanceBorder = if (isProfit) Color(0xFF2E7D32) else Color(0xFFEF4444)
+                    val balanceText = if (isProfit) Color(0xFF1B5E20) else Color(0xFFDC2626)
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, LuckyBorder, RoundedCornerShape(12.dp)),
+                            .border(1.dp, LuckyBorder, RoundedCornerShape(12.dp))
+                            .testTag("agent_settlement_card_${item.agentId}"),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = LuckyCard),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -921,80 +961,93 @@ fun AgentSettlementScreen(viewModel: MainViewModel) {
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            // Header: "1. ဦးမင်း (ကော်: 10% | အဆ: 80)" with "[ 📋 ကူးမည် ]" button
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
+                                Text(
+                                    text = "${index + 1}. ${item.agentName} (ကော်: ${fmt(item.commissionRate)}% | အဆ: ${fmt(item.multiplier)})",
+                                    color = LuckyTextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("agent_settlement_name_${item.agentId}")
+                                )
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                Button(
+                                    onClick = {
+                                        val text = formatAgent2DSettlementClipboardText(
+                                            date = selectedDate,
+                                            session = selectedSession,
+                                            winningNumber = currentWin,
+                                            item = item
+                                        )
+                                        ShareHelper.copyToClipboard(context, text)
+                                        viewModel.showToast("ကူးယူပြီးပါပြီ")
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = LuckyHeader,
+                                        contentColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(6.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier
+                                        .height(32.dp)
+                                        .testTag("agent_settlement_copy_btn_${item.agentId}")
+                                ) {
                                     Text(
-                                        text = item.agent.name,
-                                        color = LuckyTextPrimary,
-                                        fontSize = 15.sp,
+                                        text = "📋 ကူးမည်",
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Text(
-                                        text = "ကော်မရှင် ${fmt(item.agent.rate)}% • အဆ ${fmt(item.agent.mult)} • ဘောင်ချာ (${item.voucherCount})",
-                                        color = LuckyTextSecondary,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    IconButton(
-                                        onClick = {
-                                            ShareHelper.copyToClipboard(context, formatAgentSettlementShare(item))
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Default.ContentCopy, contentDescription = "ကူးယူမည်", tint = LuckyHeader, modifier = Modifier.size(18.dp))
-                                    }
-                                    IconButton(
-                                        onClick = {
-                                            ShareHelper.shareText(context, formatAgentSettlementShare(item), "ကော်မရှင်တနေ့သာစာရင်း")
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Default.Share, contentDescription = "မျှဝေမည်", tint = LuckyHeader, modifier = Modifier.size(18.dp))
-                                    }
                                 }
                             }
 
-                            HorizontalDivider(color = LuckyBorder)
+                            HorizontalDivider(color = LuckyBorder, thickness = 0.5.dp)
 
-                            // Structured format required by Section 7:
-                            // - စုစုပေါင်းရောင်းကြေး =
-                            // - ကော်မရှင် =
-                            // - ကော်နုတ်ပြီး =
-                            // - ပေါက်သီးထိုးကြေး =
-                            // - လျော်ကြေး =
-                            // - စုစုပေါင်း = [အမြတ်/အရှုံး +/-]
-                            SettlementMetricRow("စုစုပေါင်းရောင်းကြေး =", fmt(item.totalBet), LuckyTextPrimary)
-                            SettlementMetricRow("ကော်မရှင် =", fmt(item.commission), LuckyTextPrimary)
-                            SettlementMetricRow("ကော်နုတ်ပြီး =", fmt(item.netAmount), LuckyHeader)
-                            SettlementMetricRow("ပေါက်သီးထိုးကြေး =", fmt(item.winBetAmount), LuckyDanger)
-                            SettlementMetricRow("လျော်ကြေး =", fmt(item.payout), LuckyDanger)
+                            // Body Ledger:
+                            // 1. စုစုပေါင်းရောင်းကြေး = [totalSales]
+                            // 2. ကော်မရှင် ([X]%) = [commissionAmount]
+                            // 3. ကော်နုတ်ပြီး = [netSales]
+                            SettlementMetricRow("စုစုပေါင်းရောင်းကြေး =", fmt(item.totalSales), LuckyTextPrimary)
+                            SettlementMetricRow("ကော်မရှင် (${fmt(item.commissionRate)}%) =", fmt(item.commissionAmount), LuckyTextPrimary)
+                            SettlementMetricRow("ကော်နုတ်ပြီး =", fmt(item.netSales), LuckyHeader)
 
                             HorizontalDivider(color = LuckyBorder, thickness = 0.5.dp)
 
+                            // 4. ပေါက်သီးထိုးကြေး = [winningBetAmount] (Red #DC2626)
+                            // 5. လျော်ကြေး ([Y] ဆ) = [payoutAmount] (Red #DC2626)
+                            SettlementMetricRow("ပေါက်သီးထိုးကြေး =", fmt(item.winningBetAmount), Color(0xFFDC2626))
+                            SettlementMetricRow("လျော်ကြေး (${fmt(item.multiplier)} ဆ) =", fmt(item.payoutAmount), Color(0xFFDC2626))
+
+                            HorizontalDivider(color = LuckyBorder, thickness = 0.5.dp)
+
+                            // 6. အရှုံး / အမြတ် = [+/- netBalance]
+                            // Green container #E8F5E9 with + if profit, Red container #FEE2E2 with - if loss.
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(statusColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    .background(balanceBg, RoundedCornerShape(8.dp))
+                                    .border(1.dp, balanceBorder, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                                    .testTag("agent_settlement_balance_${item.agentId}"),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "စုစုပေါင်း =",
-                                    color = LuckyTextPrimary,
+                                    text = "အရှုံး / အမြတ် =",
+                                    color = balanceText,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                                 Text(
-                                    text = "${if (isProfit) "+" else "-"}${fmt(abs(item.profitLoss))}",
-                                    color = statusColor,
+                                    text = "${if (isProfit) "+" else "-"}${fmt(abs(item.netBalance))}",
+                                    color = balanceText,
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     fontFamily = FontFamily.Monospace

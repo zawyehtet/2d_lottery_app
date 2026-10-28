@@ -376,5 +376,72 @@ class ExampleUnitTest {
         assertEquals("99", rowItems[99].number)
         assertEquals(0L, rowItems[99].totalAmount)
     }
+
+    @Test
+    fun testSort2DNumbersWithWinningPinsToRow1() {
+        val all100 = (0..99).map { i ->
+            val numStr = String.format(java.util.Locale.US, "%02d", i)
+            com.example.ui.NumberSummary(n = numStr, entryCount = 1, totalBet = (i * 100).toLong(), layoffAmount = 0L, netAmount = (i * 100).toLong())
+        }
+
+        // Test with winning number "25"
+        val sortedWithWin = com.example.ui.MainViewModel.sort2DNumbersWithWinning(all100, "25")
+        assertEquals(100, sortedWithWin.size)
+        // Row 1 (index 0) MUST be the winning number "25"
+        assertEquals("25", sortedWithWin[0].n)
+        assertEquals(2500L, sortedWithWin[0].totalBet)
+
+        // Remaining 99 numbers must follow sequentially 00..99 (excluding 25)
+        val remaining = sortedWithWin.subList(1, 100)
+        assertEquals(99, remaining.size)
+        assertFalse(remaining.any { it.n == "25" })
+        assertEquals("00", remaining[0].n)
+        assertEquals("01", remaining[1].n)
+        assertEquals("24", remaining[24].n)
+        assertEquals("26", remaining[25].n)
+        assertEquals("99", remaining[98].n)
+
+        // When winning number is null or empty, numbers are sorted sequentially
+        val sortedWithoutWin = com.example.ui.MainViewModel.sort2DNumbersWithWinning(all100, null)
+        assertEquals(100, sortedWithoutWin.size)
+        assertEquals("00", sortedWithoutWin[0].n)
+        assertEquals("01", sortedWithoutWin[1].n)
+        assertEquals("99", sortedWithoutWin[99].n)
+    }
+
+    @Test
+    fun testAgent2DSettlementCalculationAndClipboardFormatting() {
+        // Agent with 10% commission and 80 multiplier
+        val settlement = com.example.ui.Agent2DSettlement(
+            agentId = 1,
+            agentName = "ဦးမင်း",
+            commissionRate = 10.0,
+            multiplier = 80.0,
+            totalSales = 50000L,
+            commissionAmount = 5000L,
+            netSales = 45000L,
+            winningBetAmount = 500L,
+            payoutAmount = 40000L,
+            netBalance = 5000L // 45000 - 40000 = +5000 Profit
+        )
+
+        assertEquals(5000L, settlement.netBalance)
+        assertTrue(settlement.netBalance >= 0L)
+
+        val clipboardText = com.example.ui.screens.formatAgent2DSettlementClipboardText(
+            date = "2026-10-28",
+            session = "12.AM",
+            winningNumber = "25",
+            item = settlement
+        )
+        assertTrue(clipboardText.contains("2D အရှုံး/အမြတ် စာရင်းရှင်းတမ်း"))
+        assertTrue(clipboardText.contains("အမည်= ဦးမင်း"))
+        assertTrue(clipboardText.contains("စုစုပေါင်းရောင်းကြေး = 50000"))
+        assertTrue(clipboardText.contains("ကော်မရှင် (10%) = 5000"))
+        assertTrue(clipboardText.contains("ကော်နုတ်ပြီး = 45000"))
+        assertTrue(clipboardText.contains("ပေါက်သီး(25) = 500"))
+        assertTrue(clipboardText.contains("လျော်ကြေး (80 ဆ) = 40000"))
+        assertTrue(clipboardText.contains("အရှုံး / အမြတ် = +5000"))
+    }
 }
 

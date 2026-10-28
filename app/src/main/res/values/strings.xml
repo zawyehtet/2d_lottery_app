@@ -103,5 +103,6 @@
     <string name="editing_daily_record_title">ရက်ချုပ်စာရင်း ပြင်ဆင်ရန်</string>
     <string name="nav_daily_summary">ရက်ချုပ်</string>
     <string name="col_serial_no">အမှတ်စဉ်</string>
+    <string name="agent_settlement_title">အရှုံး/အမြတ် စာရင်းရှင်းတမ်း</string>
     <string name="home_footer_branding">Power by Lcky2d3d ShweKhinMyay</string>
 </resources>
