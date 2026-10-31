@@ -861,7 +861,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             items = items.map { it.copy(n = it.n.toAsciiDigits()) }
         )
 
-        val updated = listOf(newVoucher) + _vouchers.value
+        val updated = (_vouchers.value + newVoucher).sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
         _vouchers.value = updated
         repository.saveVouchers(updated)
         refreshAvailableRounds()
@@ -987,7 +987,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val cleanDate = date.trim().toAsciiDigits()
         return _vouchers.value.filter {
             it.date.toAsciiDigits() == cleanDate && it.session == session
-        }
+        }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
     }
 
     fun getFilteredLayoffs(date: String = _selectedDate.value, session: String = _selectedSession.value): List<LayoffRecord> {
@@ -2353,27 +2353,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
-    fun updateSessionById(sessionId: Long, updatedSession: Session): Boolean {
-        val existing = _sessions.value.firstOrNull { it.id == sessionId } ?: return false
+    fun updateSessionRecord(targetId: Long?, oldName: String?, updatedSession: Session): Boolean {
+        val existing = _sessions.value.firstOrNull { s ->
+            (oldName != null && s.name == oldName) || (targetId != null && targetId > 0L && s.id == targetId)
+        } ?: return false
         val trimmedName = updatedSession.name.trim()
         if (trimmedName.isEmpty()) return false
-        if (_sessions.value.any { it.id != sessionId && it.name.equals(trimmedName, ignoreCase = true) }) {
+        if (_sessions.value.any { it != existing && it.name.equals(trimmedName, ignoreCase = true) }) {
             showToast("အကြိမ် အမည် ထပ်နေပါသည်")
             return false
         }
-        val normalized = updatedSession.copy(id = sessionId, name = trimmedName)
-        val updated = _sessions.value.map { if (it.id == sessionId) normalized else it }
+        val normalized = updatedSession.copy(id = existing.id, name = trimmedName)
+        val updated = _sessions.value.map { if (it == existing || it.id == existing.id) normalized else it }
         _sessions.value = updated
-        repository.updateSessionById(sessionId, normalized) ?: repository.saveSessions(updated)
+        repository.updateSessionById(existing.id, normalized) ?: repository.saveSessions(updated)
 
         if (existing.name != normalized.name) {
-            val oldName = existing.name
+            val prevName = existing.name
             val newName = normalized.name
-            _vouchers.value = _vouchers.value.map { if (it.session == oldName) it.copy(session = newName) else it }
-            _wins.value = _wins.value.map { if (it.session == oldName) it.copy(session = newName) else it }
-            _settled.value = _settled.value.map { if (it.session == oldName) it.copy(session = newName) else it }
-            _layoffs.value = _layoffs.value.map { if (it.session == oldName) it.copy(session = newName) else it }
-            _agents.value = _agents.value.map { if (it.roundNumber == oldName) it.copy(roundNumber = newName) else it }
+            repository.renameSessionAcrossDatabase(prevName, newName)
+            _vouchers.value = _vouchers.value.map { if (it.session == prevName) it.copy(session = newName) else it }
+            _wins.value = _wins.value.map { if (it.session == prevName) it.copy(session = newName) else it }
+            _settled.value = _settled.value.map { if (it.session == prevName) it.copy(session = newName) else it }
+            _layoffs.value = _layoffs.value.map { if (it.session == prevName) it.copy(session = newName) else it }
+            _agents.value = _agents.value.map { if (it.roundNumber == prevName) it.copy(roundNumber = newName) else it }
         }
 
         if (_selectedSession.value == existing.name) {
@@ -2386,40 +2389,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
+    fun updateSessionById(sessionId: Long, updatedSession: Session): Boolean {
+        return updateSessionRecord(targetId = sessionId, oldName = null, updatedSession = updatedSession)
+    }
+
     fun updateSession(oldName: String, updatedSession: Session): Boolean {
-        val existing = _sessions.value.firstOrNull { it.name == oldName }
-        if (existing != null) {
-            return updateSessionById(existing.id, updatedSession)
-        }
-        val trimmedName = updatedSession.name.trim()
-        if (trimmedName.isEmpty()) return false
-        if (!oldName.equals(trimmedName, ignoreCase = true) &&
-            _sessions.value.any { it.name.equals(trimmedName, ignoreCase = true) }
-        ) {
-            showToast("အကြိမ် အမည် ထပ်နေပါသည်")
-            return false
-        }
-        val normalized = updatedSession.copy(name = trimmedName)
-        val updated = _sessions.value.map { if (it.name == oldName) normalized else it }
-        _sessions.value = updated
-        repository.saveSessions(updated)
-        if (oldName != normalized.name) {
-            repository.renameSessionAcrossDatabase(oldName, normalized.name)
-            val newName = normalized.name
-            _vouchers.value = _vouchers.value.map { if (it.session == oldName) it.copy(session = newName) else it }
-            _wins.value = _wins.value.map { if (it.session == oldName) it.copy(session = newName) else it }
-            _settled.value = _settled.value.map { if (it.session == oldName) it.copy(session = newName) else it }
-            _layoffs.value = _layoffs.value.map { if (it.session == oldName) it.copy(session = newName) else it }
-            _agents.value = _agents.value.map { if (it.roundNumber == oldName) it.copy(roundNumber = newName) else it }
-        }
-        if (_selectedSession.value == oldName) {
-            _selectedSession.value = normalized.name
-            refreshActiveAgentsForCurrentDraw(resetDraftOnSessionChange = false)
-        }
-        refreshAvailableRounds()
-        soundManager.playEdit()
-        showToast("အကြိမ် ပြင်ဆင်ပြီးပါပြီ")
-        return true
+        return updateSessionRecord(targetId = null, oldName = oldName, updatedSession = updatedSession)
+    }
+
+    fun deleteSessionRecord(targetId: Long?, name: String?): Boolean {
+        val target = _sessions.value.firstOrNull { s ->
+            (name != null && s.name == name) || (targetId != null && targetId > 0L && s.id == targetId)
+        } ?: return false
+        return deleteSessionById(target.id)
     }
 
     fun deleteSessionById(sessionId: Long): Boolean {

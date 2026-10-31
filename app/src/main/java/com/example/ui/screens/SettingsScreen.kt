@@ -92,11 +92,13 @@ fun SettingsScreen(
     var newSessionRate by rememberSaveable { mutableStateOf("") }
     var newSessionMult by rememberSaveable { mutableStateOf("") }
     var sessionMenuTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var sessionMenuTargetName by rememberSaveable { mutableStateOf<String?>(null) }
     var editingSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editModalSessionName by rememberSaveable { mutableStateOf("") }
     var editModalSessionRate by rememberSaveable { mutableStateOf("") }
     var editModalSessionMult by rememberSaveable { mutableStateOf("") }
     var deletingSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deletingSessionName by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Blocked numbers dialog state
     var blockedInput by rememberSaveable { mutableStateOf("") }
@@ -974,10 +976,11 @@ fun SettingsScreen(
                                             val rateVal = MainViewModel.parseDoubleOrZero(newSessionRate)
                                             val multVal = MainViewModel.parseDoubleOrZero(newSessionMult)
                                             val targetId = editingSessionId
-                                            val saved = if (targetId != null) {
-                                                viewModel.updateSessionById(
-                                                    sessionId = targetId,
-                                                    updatedSession = Session(name = cleanName, rate = rateVal, mult = multVal, id = targetId)
+                                            val saved = if (targetId != null || editingSessionOldName != null) {
+                                                viewModel.updateSessionRecord(
+                                                    targetId = targetId,
+                                                    oldName = editingSessionOldName,
+                                                    updatedSession = Session(name = cleanName, rate = rateVal, mult = multVal, id = targetId ?: 0L)
                                                 )
                                             } else {
                                                 viewModel.addSession(
@@ -1149,6 +1152,7 @@ fun SettingsScreen(
                                                     onLongClick = {
                                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                         sessionMenuTargetId = s.id
+                                                        sessionMenuTargetName = s.name
                                                     }
                                                 )
                                                 .padding(horizontal = 10.dp, vertical = 9.dp)
@@ -1224,35 +1228,56 @@ fun SettingsScreen(
     }
 
     // Long-press Action Dialog for a Session Row ("ပြင်မည်" / "ဖျက်မည်")
-    val sessionMenuTarget = remember(sessions, sessionMenuTargetId) {
-        sessions.firstOrNull { it.id == sessionMenuTargetId }
+    val sessionMenuTarget = remember(sessions, sessionMenuTargetId, sessionMenuTargetName) {
+        if (sessionMenuTargetName != null) {
+            sessions.firstOrNull { it.name == sessionMenuTargetName } ?: sessions.firstOrNull { it.id == sessionMenuTargetId }
+        } else {
+            sessions.firstOrNull { it.id == sessionMenuTargetId }
+        }
     }
     if (sessionMenuTarget != null) {
         RecordActionMenuDialog(
             title = "${sessionMenuTarget.name} (${fmt(sessionMenuTarget.rate)}% • ${fmt(sessionMenuTarget.mult)})",
-            onDismiss = { sessionMenuTargetId = null },
+            onDismiss = {
+                sessionMenuTargetId = null
+                sessionMenuTargetName = null
+            },
             onEdit = {
                 viewModel.onEditActionStarted()
                 editingSessionId = sessionMenuTarget.id
+                editingSessionOldName = sessionMenuTarget.name
+                newSessionName = sessionMenuTarget.name
+                newSessionRate = fmt(sessionMenuTarget.rate)
+                newSessionMult = fmt(sessionMenuTarget.mult)
                 editModalSessionName = sessionMenuTarget.name
                 editModalSessionRate = fmt(sessionMenuTarget.rate)
                 editModalSessionMult = fmt(sessionMenuTarget.mult)
                 sessionMenuTargetId = null
+                sessionMenuTargetName = null
             },
             onDelete = {
                 deletingSessionId = sessionMenuTarget.id
+                deletingSessionName = sessionMenuTarget.name
                 sessionMenuTargetId = null
+                sessionMenuTargetName = null
             }
         )
     }
 
     // Edit Session Modal ("ပြင်မည်" -> updates exact record by ID without creating duplicate entries)
-    val editingSessionTarget = remember(sessions, editingSessionId) {
-        sessions.firstOrNull { it.id == editingSessionId }
+    val editingSessionTarget = remember(sessions, editingSessionId, editingSessionOldName) {
+        if (editingSessionOldName != null) {
+            sessions.firstOrNull { it.name == editingSessionOldName } ?: sessions.firstOrNull { it.id == editingSessionId }
+        } else {
+            sessions.firstOrNull { it.id == editingSessionId }
+        }
     }
     if (editingSessionTarget != null) {
         AlertDialog(
-            onDismissRequest = { editingSessionId = null },
+            onDismissRequest = {
+                editingSessionId = null
+                editingSessionOldName = null
+            },
             containerColor = LuckyCard,
             shape = RoundedCornerShape(14.dp),
             title = {
@@ -1311,8 +1336,9 @@ fun SettingsScreen(
                         if (cleanName.isNotEmpty()) {
                             val rateVal = MainViewModel.parseDoubleOrZero(editModalSessionRate)
                             val multVal = MainViewModel.parseDoubleOrZero(editModalSessionMult)
-                            val updated = viewModel.updateSessionById(
-                                sessionId = editingSessionTarget.id,
+                            val updated = viewModel.updateSessionRecord(
+                                targetId = editingSessionTarget.id,
+                                oldName = editingSessionOldName ?: editingSessionTarget.name,
                                 updatedSession = Session(
                                     name = cleanName,
                                     rate = rateVal,
@@ -1322,6 +1348,10 @@ fun SettingsScreen(
                             )
                             if (updated) {
                                 editingSessionId = null
+                                editingSessionOldName = null
+                                newSessionName = ""
+                                newSessionRate = ""
+                                newSessionMult = ""
                             }
                         }
                     },
@@ -1335,7 +1365,10 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(
-                    onClick = { editingSessionId = null },
+                    onClick = {
+                        editingSessionId = null
+                        editingSessionOldName = null
+                    },
                     modifier = Modifier.testTag("edit_session_modal_cancel_btn")
                 ) {
                     Text(stringResource(R.string.action_cancel), color = LuckyTextSecondary, lineHeight = 1.5.em)
@@ -1345,24 +1378,33 @@ fun SettingsScreen(
     }
 
     // Delete Session Confirmation Dialog ("ဤအကြိမ်ရေအား ဖျက်မည်လား?" with "မဖျက်ပါ" and "ဖျက်မည်")
-    val deletingSessionTarget = remember(sessions, deletingSessionId) {
-        sessions.firstOrNull { it.id == deletingSessionId }
+    val deletingSessionTarget = remember(sessions, deletingSessionId, deletingSessionName) {
+        if (deletingSessionName != null) {
+            sessions.firstOrNull { it.name == deletingSessionName } ?: sessions.firstOrNull { it.id == deletingSessionId }
+        } else {
+            sessions.firstOrNull { it.id == deletingSessionId }
+        }
     }
     if (deletingSessionTarget != null) {
         DeleteConfirmDialog(
             title = stringResource(R.string.confirm_delete_title),
             message = stringResource(R.string.session_delete_confirm_message),
-            onDismiss = { deletingSessionId = null },
+            onDismiss = {
+                deletingSessionId = null
+                deletingSessionName = null
+            },
             onConfirm = {
                 val targetId = deletingSessionTarget.id
-                if (editingSessionOldName == deletingSessionTarget.name) {
+                val targetName = deletingSessionTarget.name
+                if (editingSessionOldName == targetName) {
                     editingSessionOldName = null
                     newSessionName = ""
                     newSessionRate = ""
                     newSessionMult = ""
                 }
                 deletingSessionId = null
-                viewModel.deleteSessionById(targetId)
+                deletingSessionName = null
+                viewModel.deleteSessionRecord(targetId, targetName)
             }
         )
     }
