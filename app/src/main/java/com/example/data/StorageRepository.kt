@@ -511,6 +511,8 @@ class StorageRepository(context: Context) {
                             )
                         )
                     }
+                    val savedRecordNo = obj.optInt("recordNo", 0)
+                    val recordNo = if (savedRecordNo > 0) savedRecordNo else (i + 1)
                     list.add(
                         LayoffRecord(
                             id = obj.getLong("id"),
@@ -519,7 +521,8 @@ class StorageRepository(context: Context) {
                             time = obj.getString("time").toAsciiDigits(),
                             limit = obj.getLong("limit"),
                             items = items,
-                            total = obj.getLong("total")
+                            total = obj.getLong("total"),
+                            recordNo = recordNo
                         )
                     )
                 }
@@ -537,6 +540,7 @@ class StorageRepository(context: Context) {
             layoffs.forEach { l ->
                 val obj = JSONObject().apply {
                     put("id", l.id)
+                    put("recordNo", l.recordNo)
                     put("date", l.date)
                     put("session", l.session)
                     put("time", l.time)

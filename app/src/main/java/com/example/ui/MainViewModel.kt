@@ -7,6 +7,7 @@ import com.example.data.*
 import com.example.util.SoundManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -990,13 +991,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
     }
 
+    fun getBetsForVoucher(voucherNo: Int): Flow<List<BetItem>> = flow {
+        val cleanDate = _selectedDate.value.toAsciiDigits()
+        val sess = _selectedSession.value
+        val v = _vouchers.value.firstOrNull { it.date.toAsciiDigits() == cleanDate && it.session == sess && it.no == voucherNo }
+            ?: _vouchers.value.firstOrNull { it.no == voucherNo }
+        emit(v?.items ?: emptyList())
+    }
+
+    fun getVouchersBySessionOldestFirst(date: String = _selectedDate.value, session: String = _selectedSession.value): Flow<List<Voucher>> = flow {
+        val list = getFilteredVouchers(date, session).sortedBy { it.no }
+        emit(list)
+    }
+
     fun getFilteredLayoffs(date: String = _selectedDate.value, session: String = _selectedSession.value): List<LayoffRecord> {
         if (session.isBlank()) return emptyList()
         val cleanDate = date.trim().toAsciiDigits()
         return _layoffs.value.filter {
             it.date.toAsciiDigits() == cleanDate && it.session == session
-        }
+        }.sortedWith(compareBy<LayoffRecord> { it.recordNo }.thenBy { it.id })
     }
+
+    fun getPassBetRecordsOldestFirst(session: String = _selectedSession.value, date: String = _selectedDate.value): Flow<List<PassBetRecordEntity>> = flow {
+        val list = getFilteredLayoffs(date, session).map { PassBetRecordEntity.fromDomainLayoffRecord(it) }
+        emit(list)
+    }
+
 
     // Total Bet aggregated per number (00 to 99) with entry count (အကြိမ်ရေ)
     fun getAggregatedNumbers(includeZeroBets: Boolean = false): List<NumberSummary> {
@@ -1216,14 +1236,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val totalLayoff = layoffItems.sumOf { it.a }
+        val cleanDate = _selectedDate.value.toAsciiDigits()
+        val currentSess = _selectedSession.value
+        val existingForSession = _layoffs.value.filter {
+            it.date.toAsciiDigits() == cleanDate && it.session == currentSess
+        }
+        val nextRecordNo = (existingForSession.maxOfOrNull { it.recordNo } ?: existingForSession.size) + 1
+
         val record = LayoffRecord(
             id = System.currentTimeMillis(),
-            date = _selectedDate.value.toAsciiDigits(),
-            session = _selectedSession.value,
+            date = cleanDate,
+            session = currentSess,
             time = timeFormatter.format(Date()).toAsciiDigits(),
             limit = limit,
             items = layoffItems,
-            total = totalLayoff
+            total = totalLayoff,
+            recordNo = nextRecordNo
         )
 
         val updated = listOf(record) + _layoffs.value
@@ -2458,6 +2486,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 typealias SharedLotteryViewModel = MainViewModel
 typealias LotteryViewModel = MainViewModel
+typealias Lottery2DViewModel = MainViewModel
 
 data class SettledCalculation(
     val totalRetained: Long,

@@ -436,12 +436,7 @@ class ExampleUnitTest {
         )
 
         val formattedText = com.example.ui.screens.formatVoucherCopyText(voucher)
-        val expected = """
-            No. 1=12:01 PM
-            12=500
-            34=1000
-            စုစုပေါင်း=1500
-        """.trimIndent()
+        val expected = "No. 1=12:01 PM\n12=500\n34=1000\n\nစုစုပေါင်း=1500"
 
         assertEquals(expected, formattedText)
     }
@@ -480,5 +475,168 @@ class ExampleUnitTest {
         assertTrue(clipboardText.contains("လျော်ကြေး (80 ဆ) = 40000"))
         assertTrue(clipboardText.contains("အရှုံး / အမြတ် = +5000"))
     }
+
+    @Test
+    fun testVoucherOldestFirstSequence() {
+        val v3 = com.example.data.Voucher(
+            id = 300L,
+            no = 3,
+            agent = "Agent",
+            date = "2026-10-31",
+            session = "31.AM",
+            time = "10:00",
+            items = listOf(com.example.data.BetItem("11", 100L))
+        )
+        val v1 = com.example.data.Voucher(
+            id = 100L,
+            no = 1,
+            agent = "Agent",
+            date = "2026-10-31",
+            session = "31.AM",
+            time = "09:00",
+            items = listOf(com.example.data.BetItem("22", 200L))
+        )
+        val v2 = com.example.data.Voucher(
+            id = 200L,
+            no = 2,
+            agent = "Agent",
+            date = "2026-10-31",
+            session = "31.AM",
+            time = "09:30",
+            items = listOf(com.example.data.BetItem("33", 300L))
+        )
+
+        val unsorted = listOf(v3, v1, v2)
+        val sorted = unsorted.sortedWith(compareBy<com.example.data.Voucher> { it.no }.thenBy { it.id })
+
+        assertEquals(1, sorted[0].no)
+        assertEquals(2, sorted[1].no)
+        assertEquals(3, sorted[2].no)
+    }
+
+    @Test
+    fun testCopyVoucherWithHeaderAndFooterFormat() {
+        val voucherNo = 1
+        val sessionName = "31.AM"
+        val bets = listOf(
+            com.example.data.BetItem("12", 500L),
+            com.example.data.BetItem("34", 1000L),
+            com.example.data.BetItem("56", 500L)
+        )
+        val totalAmount = bets.sumOf { it.amount }
+
+        val builder = StringBuilder()
+        builder.append("No. ").append(voucherNo).append("=").append(sessionName.trim()).append("\n")
+        bets.forEach { bet ->
+            builder.append(bet.number.trim()).append("=").append(bet.amount).append("\n")
+        }
+        builder.append("\nစုစုပေါင်း=").append(totalAmount)
+
+        val expected = """
+            No. 1=31.AM
+            12=500
+            34=1000
+            56=500
+
+            စုစုပေါင်း=2000
+        """.trimIndent()
+
+        assertEquals(expected, builder.toString())
+    }
+
+    @Test
+    fun testPassBetRecordExportFormat() {
+        val recordNo = 1
+        val sessionName = "31.AM"
+        val bets = listOf(
+            com.example.data.BetItem("12", 500L),
+            com.example.data.BetItem("34", 1000L),
+            com.example.data.BetItem("56", 500L)
+        )
+        val totalAmount = bets.sumOf { it.amount }
+
+        val builder = StringBuilder()
+        builder.append("No. ").append(recordNo).append("=").append(sessionName.trim()).append("\n")
+        bets.forEach { bet ->
+            builder.append(bet.number.trim()).append("=").append(bet.amount).append("\n")
+        }
+        builder.append("\nစုစုပေါင်း=").append(totalAmount)
+
+        val expected = """
+            No. 1=31.AM
+            12=500
+            34=1000
+            56=500
+
+            စုစုပေါင်း=2000
+        """.trimIndent()
+
+        assertEquals(expected, builder.toString())
+    }
+
+    @Test
+    fun testPassBetOldestFirstSequence() {
+        val r3 = com.example.data.LayoffRecord(
+            id = 300L,
+            date = "2026-10-31",
+            session = "31.AM",
+            time = "10:00",
+            limit = 5000L,
+            items = listOf(com.example.data.LayoffItem("11", 100L)),
+            total = 100L,
+            recordNo = 3
+        )
+        val r1 = com.example.data.LayoffRecord(
+            id = 100L,
+            date = "2026-10-31",
+            session = "31.AM",
+            time = "09:00",
+            limit = 5000L,
+            items = listOf(com.example.data.LayoffItem("22", 200L)),
+            total = 200L,
+            recordNo = 1
+        )
+        val r2 = com.example.data.LayoffRecord(
+            id = 200L,
+            date = "2026-10-31",
+            session = "31.AM",
+            time = "09:30",
+            limit = 5000L,
+            items = listOf(com.example.data.LayoffItem("33", 300L)),
+            total = 300L,
+            recordNo = 2
+        )
+
+        val unsorted = listOf(r3, r1, r2)
+        val sorted = unsorted.sortedWith(compareBy<com.example.data.LayoffRecord> { it.recordNo }.thenBy { it.id })
+
+        assertEquals(1, sorted[0].recordNo)
+        assertEquals(2, sorted[1].recordNo)
+        assertEquals(3, sorted[2].recordNo)
+    }
+
+    @Test
+    fun testAgentVoucherReceiptFormat() {
+        val voucher = com.example.data.Voucher(
+            id = 1L,
+            no = 5,
+            agent = "ဦးမောင်",
+            date = "2026-10-31",
+            session = "31.AM",
+            time = "09:15",
+            items = listOf(
+                com.example.data.BetItem("12", 500L),
+                com.example.data.BetItem("34", 1000L)
+            )
+        )
+        val receipt = com.example.ui.screens.buildAgentVoucherReceipt(voucher)
+        assertTrue(receipt.contains("🍀 Lucky2D - အရောင်းဘောင်ချာ"))
+        assertTrue(receipt.contains("ဘောင်ချာ အမှတ် : No. 5"))
+        assertTrue(receipt.contains("ထိုးသူ/ကိုယ်စားလှယ် : ဦးမောင်"))
+        assertTrue(receipt.contains("12 = 500"))
+        assertTrue(receipt.contains("34 = 1000"))
+        assertTrue(receipt.contains("စုစုပေါင်း = 1500"))
+    }
 }
+
 

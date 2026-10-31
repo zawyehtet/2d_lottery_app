@@ -36,6 +36,10 @@ data class VoucherEntity(
 ) {
     val voucherId: Long
         get() = id
+    val sessionName: String
+        get() = roundNumber
+    val formattedDateTime: String
+        get() = if (formattedTime.contains("/")) formattedTime else if (formattedTime.isNotBlank()) "$date/$formattedTime" else date
 
     fun toDomainVoucher(): Voucher {
         val items = mutableListOf<BetItem>()
@@ -198,6 +202,12 @@ interface VoucherDao {
     @Query("SELECT * FROM vouchers WHERE date = :date AND roundNumber = :round ORDER BY voucherNo ASC, voucherId ASC")
     fun getVouchersByDateAndRoundSync(date: String, round: String): List<VoucherEntity>
 
+    @Query("SELECT * FROM vouchers WHERE date = :date AND roundNumber = :round ORDER BY voucherNo ASC")
+    fun getVouchersBySessionOldestFirst(date: String, round: String): Flow<List<VoucherEntity>>
+
+    @Query("SELECT * FROM vouchers WHERE date = :date AND roundNumber = :round ORDER BY voucherNo ASC")
+    fun getVouchersBySessionOldestFirstSync(date: String, round: String): List<VoucherEntity>
+
     @Query("SELECT DISTINCT roundNumber FROM vouchers WHERE date = :date")
     fun getRoundsByDate(date: String): Flow<List<String>>
 
@@ -301,6 +311,89 @@ interface SessionDao {
     fun clearAllSessionsSync()
 }
 
+@Entity(
+    tableName = "pass_bet_records",
+    indices = [Index(value = ["date", "sessionName"])]
+)
+data class PassBetRecordEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val recordNo: Int = 1,
+    val sessionName: String,
+    val date: String,
+    val totalAmount: Long,
+    val betsJson: String = "",
+    val time: String = "",
+    val limit: Long = 0L
+) {
+    val session: String get() = sessionName
+    val total: Long get() = totalAmount
+
+    fun toDomainLayoffRecord(): LayoffRecord {
+        val items = mutableListOf<LayoffItem>()
+        try {
+            val arr = JSONArray(betsJson)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                items.add(LayoffItem(obj.getString("n"), obj.getLong("a")))
+            }
+        } catch (_: Exception) {}
+        return LayoffRecord(
+            id = id,
+            date = date,
+            session = sessionName,
+            time = time,
+            limit = limit,
+            items = items,
+            total = totalAmount,
+            recordNo = recordNo
+        )
+    }
+
+    companion object {
+        fun fromDomainLayoffRecord(rec: LayoffRecord): PassBetRecordEntity {
+            val arr = JSONArray()
+            rec.items.forEach { itm ->
+                arr.put(JSONObject().apply {
+                    put("n", itm.n)
+                    put("a", itm.a)
+                })
+            }
+            return PassBetRecordEntity(
+                id = rec.id,
+                recordNo = rec.recordNo,
+                sessionName = rec.session,
+                date = rec.date,
+                totalAmount = rec.total,
+                betsJson = arr.toString(),
+                time = rec.time,
+                limit = rec.limit
+            )
+        }
+    }
+}
+
+@Dao
+interface PassBetRecordDao {
+    @Query("SELECT * FROM pass_bet_records WHERE sessionName = :session AND date = :date ORDER BY recordNo ASC")
+    fun getPassBetRecordsOldestFirst(session: String, date: String): Flow<List<PassBetRecordEntity>>
+
+    @Query("SELECT * FROM pass_bet_records WHERE sessionName = :session AND date = :date ORDER BY recordNo ASC")
+    fun getPassBetRecordsOldestFirstSync(session: String, date: String): List<PassBetRecordEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertPassBetRecordSync(record: PassBetRecordEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertAllPassBetRecordsSync(records: List<PassBetRecordEntity>)
+
+    @Query("DELETE FROM pass_bet_records WHERE id = :id")
+    fun deletePassBetRecordByIdSync(id: Long)
+
+    @Query("DELETE FROM pass_bet_records")
+    fun clearAllPassBetRecordsSync()
+}
+
 typealias AgentEntity = com.example.data.local.entity.AgentEntity
 typealias AgentDao = com.example.data.local.dao.AgentDao
 typealias DailySettlementEntity = com.example.data.local.entity.DailySettlementEntity
@@ -313,9 +406,10 @@ typealias DailySettlementDao = com.example.data.local.dao.DailySettlementDao
         WinningNumberEntity::class,
         SettlementEntity::class,
         DailySettlementEntity::class,
-        SessionEntity::class
+        SessionEntity::class,
+        PassBetRecordEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -325,6 +419,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun settlementDao(): SettlementDao
     abstract fun dailySettlementDao(): DailySettlementDao
     abstract fun sessionDao(): SessionDao
+    abstract fun passBetRecordDao(): PassBetRecordDao
 
     companion object {
         @Volatile

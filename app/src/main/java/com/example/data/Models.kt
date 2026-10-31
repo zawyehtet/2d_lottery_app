@@ -25,7 +25,12 @@ data class BetItem(
     val n: String,
     val a: Long,
     val id: Long = betItemIdCounter.incrementAndGet()
-)
+) {
+    val number: String get() = n
+    val amount: Long get() = a
+}
+
+typealias BetItemEntity = BetItem
 
 data class Voucher(
     val id: Long,
@@ -37,6 +42,11 @@ data class Voucher(
     val time: String,
     val items: List<BetItem>
 ) {
+    val voucherNo: Int get() = no
+    val sessionName: String get() = session
+    val agentName: String get() = agent
+    val formattedDateTime: String
+        get() = if (time.contains("/")) time else if (time.isNotBlank()) "$date/$time" else date
     val totalAmount: Long
         get() = items.sumOf { it.a }
 }
@@ -44,7 +54,10 @@ data class Voucher(
 data class LayoffItem(
     val n: String,
     val a: Long
-)
+) {
+    val number: String get() = n
+    val amount: Long get() = a
+}
 
 data class LayoffRecord(
     val id: Long,
@@ -53,8 +66,14 @@ data class LayoffRecord(
     val time: String,
     val limit: Long,
     val items: List<LayoffItem>,
-    val total: Long
-)
+    val total: Long,
+    val recordNo: Int = 1
+) {
+    val sessionName: String get() = session
+    val totalAmount: Long get() = total
+    val betItems: List<BetItemEntity> get() = items.map { BetItem(it.n, it.a) }
+}
+
 
 data class WinRecord(
     val date: String,

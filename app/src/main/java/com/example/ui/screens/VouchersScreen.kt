@@ -1,6 +1,14 @@
-@file:OptIn(ExperimentalFoundationApi::class)
+@file:OptIn(
+    ExperimentalFoundationApi::class,
+    ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
 package com.example.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,9 +19,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -21,42 +31,141 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.BetItem
+import com.example.data.BetItemEntity
 import com.example.data.Voucher
+import com.example.data.VoucherEntity
+import com.example.ui.Lottery2DViewModel
 import com.example.ui.MainViewModel
 import com.example.ui.components.AppHeader
-import com.example.ui.components.DeleteConfirmDialog
-import com.example.ui.components.EntryLongPressDropdownMenu
 import com.example.ui.components.RoundRequiredHelperBanner
 import com.example.ui.components.SearchPill
 import com.example.ui.components.ShareHelper
-import com.example.ui.components.entryCombinedClickable
-import com.example.ui.components.fmt
 import com.example.ui.theme.*
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * Standard Agent Voucher Receipt Builder ("ကော်မရှင်တစ်ဦးချင်းစီ၏ ဘောင်ချာ")
+ */
+fun buildAgentVoucherReceipt(voucher: Voucher): String {
+    val builder = StringBuilder()
+    builder.append("----------------------------\n")
+    builder.append("🍀 Lucky2D - အရောင်းဘောင်ချာ\n")
+    builder.append("----------------------------\n")
+    builder.append("ဘောင်ချာ အမှတ် : No. ").append(voucher.no).append("\n")
+    builder.append("ထိုးသူ/ကိုယ်စားလှယ် : ").append(voucher.agent).append("\n")
+    builder.append("ရက်စွဲ : ").append(voucher.date).append(" (").append(voucher.session).append(")\n")
+    builder.append("အချိန် : ").append(voucher.formattedDateTime).append("\n")
+    builder.append("----------------------------\n")
+    voucher.items.forEach { bet ->
+        builder.append(bet.number).append(" = ").append(bet.amount).append("\n")
+    }
+    builder.append("----------------------------\n")
+    builder.append("စုစုပေါင်း = ").append(voucher.totalAmount).append("\n")
+    builder.append("----------------------------")
+    return builder.toString()
+}
+
+/**
+ * Standardized Voucher Copy Utility for both 2D and 3D.
+ * Strictly guarantees Header, Body, and Footer are concatenated.
+ */
+fun copyVoucherWithHeaderAndFooter(
+    context: Context,
+    voucherNo: Int,
+    sessionOrRound: String, // "31.AM" for 2D or "23" for 3D
+    items: List<BetItemEntity>, // List of bets with .number and .amount
+    totalAmount: Long
+) {
+    val builder = StringBuilder()
+
+    // 1. MANDATORY HEADER: No. [အမှတ်စဉ်]=[အကြိမ်]
+    builder.append("No. ").append(voucherNo).append("=").append(sessionOrRound.trim()).append("\n")
+
+    // 2. ITEM LINES: [ဂဏန်း]=[ငွေ]
+    items.forEach { bet ->
+        builder.append(bet.number.trim()).append("=").append(bet.amount).append("\n")
+    }
+
+    // 3. MANDATORY FOOTER: Blank line divider + စုစုပေါင်း=[ငွေပမာဏ စုစုပေါင်း]
+    builder.append("\nစုစုပေါင်း=").append(totalAmount)
+
+    val finalClipboardText = builder.toString()
+
+    // Copy directly to system clipboard
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = ClipData.newPlainText("Voucher No. $voucherNo", finalClipboardText)
+    clipboard.setPrimaryClip(clip)
+
+    Toast.makeText(context, "No. $voucherNo တင်ကွက်စာရင်း ကူးယူပြီးပါပြီ", Toast.LENGTH_SHORT).show()
+}
+
+/**
+ * Overload accepting domain Voucher model
+ */
+fun copyVoucherWithHeaderAndFooter(
+    context: Context,
+    voucher: Voucher
+) {
+    copyVoucherWithHeaderAndFooter(
+        context = context,
+        voucherNo = voucher.no,
+        sessionOrRound = voucher.session,
+        items = voucher.items,
+        totalAmount = voucher.totalAmount
+    )
+}
+
+fun copy2DVoucherToClipboard(
+    context: Context,
+    voucherNo: Int,
+    sessionName: String,
+    bets: List<BetItemEntity>,
+    totalAmount: Long
+) {
+    copyVoucherWithHeaderAndFooter(context, voucherNo, sessionName, bets, totalAmount)
+}
+
+fun copy2DVoucherToClipboard(
+    context: Context,
+    voucher: Voucher
+) {
+    copyVoucherWithHeaderAndFooter(context, voucher)
+}
+
+fun formatVoucherCopyText(voucher: Voucher): String {
+    val builder = StringBuilder()
+    builder.append("No. ").append(voucher.no).append("=").append(voucher.session).append("\n")
+    voucher.items.forEach { bet ->
+        builder.append(bet.number).append("=").append(bet.amount).append("\n")
+    }
+    builder.append("\nစုစုပေါင်း=").append(voucher.totalAmount)
+    return builder.toString()
+}
+
+/**
+ * Main Voucher History Screen ("ဘောင်ချာများ စာရင်း")
+ * Displays individual Agent Voucher Cards strictly based on reference layout.
+ */
 @Composable
 fun VouchersScreen(
     viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val selectedSession by viewModel.selectedSession.collectAsState()
     val sessions by viewModel.sessions.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val vouchers by viewModel.vouchers.collectAsState()
-    val blocked by viewModel.blocked.collectAsState()
 
     val wins by viewModel.wins.collectAsState()
     val settled by viewModel.settled.collectAsState()
@@ -67,26 +176,21 @@ fun VouchersScreen(
 
     val filterAgent by viewModel.selectedVoucherFilterAgent.collectAsState()
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    val context = LocalContext.current
 
-    var editingNumberId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var editingInitialNumber by rememberSaveable { mutableStateOf("") }
-    var editingInitialAmount by rememberSaveable { mutableStateOf(0L) }
-
-    var addingToVoucherId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var deletingVoucherId by rememberSaveable { mutableStateOf<Long?>(null) }
-
-    val filteredVouchers = if (!hasRound) {
-        emptyList()
-    } else {
-        vouchers.filter { v ->
-            v.date == selectedDate && v.session == selectedSession &&
-                (filterAgent == "ALL" || v.agent == filterAgent) &&
-                (searchQuery.isBlank() ||
-                    v.agent.contains(searchQuery, ignoreCase = true) ||
-                    v.no.toString() == searchQuery.trim() ||
-                    v.items.any { it.n == searchQuery.trim() })
-        }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
+    // Filter and sort vouchers oldest first
+    val filteredVouchers = remember(vouchers, selectedDate, selectedSession, filterAgent, searchQuery, hasRound) {
+        if (!hasRound) {
+            emptyList()
+        } else {
+            vouchers.filter { v ->
+                v.date == selectedDate && v.session == selectedSession &&
+                    (filterAgent == "ALL" || v.agent == filterAgent) &&
+                    (searchQuery.isBlank() ||
+                        v.agent.contains(searchQuery, ignoreCase = true) ||
+                        v.no.toString() == searchQuery.trim() ||
+                        v.items.any { it.n == searchQuery.trim() })
+            }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
+        }
     }
 
     Box(modifier = modifier.fillMaxSize().background(LuckyBg)) {
@@ -111,400 +215,98 @@ fun VouchersScreen(
 
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 10.dp, start = 14.dp, end = 14.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxSize()
+                    .padding(vertical = 8.dp)
             ) {
                 RoundRequiredHelperBanner(visible = !hasRound)
 
-                SearchPill(
-                    query = searchQuery,
-                    onQueryChange = { searchQuery = it },
-                    label = stringResource(R.string.label_search_voucher),
-                    enabled = hasRound,
-                    modifier = Modifier.testTag("voucher_search_input")
-                )
-            }
+                if (hasRound) {
+                    SearchPill(
+                        query = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        label = stringResource(R.string.label_search_voucher),
+                        enabled = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 4.dp)
+                            .testTag("voucher_search_input")
+                    )
+                }
 
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 8.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
                 if (filteredVouchers.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "ဘောင်ချာ မှတ်တမ်း မရှိသေးပါ",
-                                color = LuckyTextMuted,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-                } else {
-                    items(filteredVouchers, key = { it.id }) { voucher ->
-                        VoucherCard(
-                            voucher = voucher,
-                            onEditNumber = { item ->
-                                viewModel.onEditActionStarted()
-                                editingNumberId = item.id
-                                editingInitialNumber = item.n
-                                editingInitialAmount = item.a
-                            },
-                            onDeleteNumber = { numberId ->
-                                viewModel.deleteNumber(numberId)
-                            },
-                            onAddNumber = {
-                                addingToVoucherId = voucher.id
-                            },
-                            onDeleteVoucher = {
-                                deletingVoucherId = voucher.id
-                            },
-                            onCopy = {
-                                val text = formatVoucherCopyText(voucher)
-                                ShareHelper.copyToClipboard(context, text)
-                                viewModel.showToast("တင်ကွက် ကူးယူပြီးပါပြီ")
-                            },
-                            onShare = {
-                                val text = buildReceiptText(voucher)
-                                ShareHelper.shareText(context, text)
-                            },
-                            onPrint = {
-                                val text = buildReceiptText(voucher)
-                                ShareHelper.printText(context, text)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        if (editingNumberId != null) {
-            EditBetItemDialog(
-                initialNumber = editingInitialNumber,
-                initialAmount = editingInitialAmount,
-                blocked = blocked,
-                onDismiss = {
-                    editingNumberId = null
-                },
-                onSave = { newNum, newAmt ->
-                    val numId = editingNumberId ?: return@EditBetItemDialog
-                    viewModel.editNumber(numId, newNum, newAmt)
-                    editingNumberId = null
-                },
-                onDelete = null
-            )
-        }
-
-        if (addingToVoucherId != null) {
-            EditBetItemDialog(
-                initialNumber = "",
-                initialAmount = 0L,
-                blocked = blocked,
-                onDismiss = {
-                    addingToVoucherId = null
-                },
-                onSave = { newNum, newAmt ->
-                    val vId = addingToVoucherId ?: return@EditBetItemDialog
-                    viewModel.addNumberToVoucher(vId, newNum, newAmt)
-                    addingToVoucherId = null
-                },
-                onDelete = null
-            )
-        }
-
-        if (deletingVoucherId != null) {
-            DeleteConfirmDialog(
-                title = stringResource(R.string.voucher_delete_dialog_title),
-                message = stringResource(R.string.voucher_delete_dialog_message),
-                onDismiss = {
-                    deletingVoucherId = null
-                },
-                onConfirm = {
-                    val vId = deletingVoucherId
-                    deletingVoucherId = null
-                    if (vId != null) {
-                        viewModel.deleteVoucher(vId)
-                    }
-                }
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun VoucherCard(
-    voucher: Voucher,
-    onEditNumber: (BetItem) -> Unit,
-    onDeleteNumber: (Long) -> Unit,
-    onAddNumber: (() -> Unit)? = null,
-    onDeleteVoucher: () -> Unit = {},
-    onCopy: () -> Unit,
-    onShare: () -> Unit,
-    onPrint: () -> Unit
-) {
-    var menuNumberId by rememberSaveable(voucher.id) { mutableStateOf<Long?>(null) }
-    val menuTitle = stringResource(R.string.voucher_number_menu_title)
-    val haptic = LocalHapticFeedback.current
-
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = LuckyCard),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, LuckyBorder, RoundedCornerShape(12.dp))
-            .combinedClickable(
-                onClick = {},
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onDeleteVoucher()
-                }
-            )
-            .testTag("voucher_card_${voucher.id}")
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Top Header Section (Voucher No., Time, and Agent ID/Name) — clicking or long-pressing triggers voucher delete confirmation
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .combinedClickable(
-                        onClick = onDeleteVoucher,
-                        onLongClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onDeleteVoucher()
-                        }
-                    )
-                    .testTag("voucher_header_${voucher.id}")
-            ) {
-                // Header Row: အမှတ် ... | အချိန် : ...
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(LuckyHeader)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = "အမှတ် ${voucher.no}",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                        Text(
-                            text = "အချိန် : ${voucher.time}",
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 11.sp
-                        )
-                    }
-
-                    if (onAddNumber != null) {
-                        IconButton(
-                            onClick = onAddNumber,
-                            modifier = Modifier
-                                .size(28.dp)
-                                .testTag("voucher_add_number_btn_${voucher.id}")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = stringResource(R.string.voucher_add_number),
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Agent Info Row: အိုင်ဒီ : ... , အမည် : ... | X ကွက်
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(LuckyCardDark)
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                        .testTag("voucher_agent_header_${voucher.id}"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .background(LuckyHeader),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = voucher.agent.take(1),
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Text(
-                            text = "အိုင်ဒီ : ${voucher.agentId} , အမည် : ${voucher.agent}",
-                            color = LuckyTextPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp
-                        )
-                    }
-
-                    Text(
-                        text = "${voucher.items.size} ကွက်",
-                        color = LuckyTextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            HorizontalDivider(color = LuckyBorder, thickness = 0.5.dp)
-
-            // Full-Width Bet Items Table (စဉ် | ဂဏန်း | ပမာဏ) keyed by unique BetItem.id
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LuckyCard)
-            ) {
-                if (voucher.items.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 16.dp),
+                            .weight(1f)
+                            .testTag("vouchers_empty_state"),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = stringResource(R.string.voucher_empty_numbers),
+                            text = "ဘောင်ချာ မရှိသေးပါ",
                             color = LuckyTextMuted,
-                            fontSize = 13.sp
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
                         )
                     }
                 } else {
-                    voucher.items.forEachIndexed { idx, item ->
-                        key(item.id) {
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .entryCombinedClickable(
-                                            enabled = true,
-                                            itemDescription = "${item.n} ပမာဏ ${item.a}",
-                                            onClick = {},
-                                            onShowMenu = { menuNumberId = item.id },
-                                            onEditAction = { onEditNumber(item) },
-                                            onDeleteAction = { onDeleteNumber(item.id) }
-                                        )
-                                        .background(if (idx % 2 == 0) LuckyCard else LuckyCardDark.copy(alpha = 0.5f))
-                                        .padding(horizontal = 12.dp, vertical = 7.dp)
-                                        .testTag("voucher_number_row_${item.id}"),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "${idx + 1}.",
-                                        color = LuckyTextMuted,
-                                        fontSize = 12.sp,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        modifier = Modifier.weight(0.6f)
-                                    )
-                                    Text(
-                                        text = item.n,
-                                        color = LuckyHeader,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(
-                                        text = fmt(item.a),
-                                        color = LuckyTextPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        textAlign = TextAlign.End,
-                                        modifier = Modifier.weight(1.4f)
-                                    )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        items(filteredVouchers, key = { it.id }) { voucher ->
+                            VoucherCardItem(
+                                voucher = voucher,
+                                betsList = voucher.items,
+                                onUpdateBetAmount = { betItem, newAmt ->
+                                    viewModel.editNumber(betItem.id, betItem.number, newAmt)
+                                },
+                                onDeleteSingleBet = { betItem ->
+                                    viewModel.deleteNumber(betItem.id)
+                                },
+                                onDeleteEntireVoucher = { v ->
+                                    viewModel.deleteVoucher(v.id)
+                                },
+                                onCopyVoucher = {
+                                    val receiptText = buildAgentVoucherReceipt(voucher)
+                                    ShareHelper.copyToClipboard(context, receiptText, "Voucher No. ${voucher.no}")
+                                    Toast.makeText(context, "ဘောင်ချာ No. ${voucher.no} ကူးယူပြီးပါပြီ", Toast.LENGTH_SHORT).show()
                                 }
-
-                                EntryLongPressDropdownMenu(
-                                    expanded = menuNumberId == item.id,
-                                    title = menuTitle,
-                                    onDismiss = { menuNumberId = null },
-                                    onEdit = { onEditNumber(item) },
-                                    onDelete = { onDeleteNumber(item.id) }
-                                )
-                            }
-                            if (idx < voucher.items.lastIndex) {
-                                HorizontalDivider(color = LuckyBorder.copy(alpha = 0.4f), thickness = 0.5.dp)
-                            }
+                            )
                         }
                     }
                 }
-            }
 
-            HorizontalDivider(color = LuckyBorder, thickness = 1.dp)
-
-            // Footer: စုစုပေါင်း : total with copy, share, print icons
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LuckyCardDark)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "စုစုပေါင်း : ${fmt(voucher.totalAmount)}",
-                    color = LuckySuccess,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 15.sp
-                )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Button(
-                        onClick = onCopy,
-                        colors = ButtonDefaults.buttonColors(containerColor = LuckyHeader, contentColor = Color.White),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
+                // Summary Footer
+                if (filteredVouchers.isNotEmpty()) {
+                    Card(
                         modifier = Modifier
-                            .height(34.dp)
-                            .testTag("voucher_copy_btn_${voucher.id}")
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0C4E3E)),
+                        elevation = CardDefaults.cardElevation(2.dp)
                     ) {
-                        Text(
-                            text = "📋 တင်ကွက် ကူးမည်",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Share, contentDescription = "မျှဝေရန်", tint = LuckyHeader, modifier = Modifier.size(18.dp))
-                    }
-                    IconButton(onClick = onPrint, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Print, contentDescription = "ပရင့်ထုတ်ရန်", tint = LuckyHeader, modifier = Modifier.size(18.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "စုစုပေါင်းဘောင်ချာ: ${filteredVouchers.size} စောင်",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.5.sp
+                            )
+                            Text(
+                                text = "စုစုပေါင်းရောင်းကြေး: ${filteredVouchers.sumOf { it.totalAmount }}",
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp
+                            )
+                        }
                     }
                 }
             }
@@ -512,29 +314,455 @@ fun VoucherCard(
     }
 }
 
-fun formatVoucherCopyText(voucher: Voucher): String {
-    val sb = StringBuilder()
-    sb.appendLine("No. ${voucher.no}=${voucher.session}")
-    voucher.items.forEach { itm ->
-        sb.appendLine("${itm.n}=${itm.a}")
+/**
+ * VoucherCardItem strictly based on the reference layout specification:
+ * 1. Dark Green Header Strip (#0C4E3E) without '+' button, long-press to delete voucher
+ * 2. Agent Sub-Header with circular avatar badge + name + bet count badge
+ * 3. Bet Numbers Vertical Table: Index | 2D Number (#0F766E) | Bet Amount (#1E293B)
+ *    Long-press row triggers Action Dialog: Edit amount or Delete single bet
+ * 4. Card Footer Bar: Total Amount in green (#15803D) + Copy, Share, Print action icons
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun VoucherCardItem(
+    voucher: Voucher,
+    betsList: List<BetItemEntity>,
+    onUpdateBetAmount: (BetItemEntity, Long) -> Unit,
+    onDeleteSingleBet: (BetItemEntity) -> Unit,
+    onDeleteEntireVoucher: (Voucher) -> Unit,
+    onCopyVoucher: () -> Unit
+) {
+    var showDeleteVoucherDialog by remember { mutableStateOf(false) }
+    var selectedBetForAction by remember { mutableStateOf<BetItemEntity?>(null) }
+    var isEditAmountDialogOpen by remember { mutableStateOf(false) }
+    var editAmountInput by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 7.dp)
+            .testTag("voucher_card_item_${voucher.no}"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+
+            // 1. Dark Green Header Strip (NO '+' Button, Long-Press to Delete Voucher)
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        onClick = { /* Optional tap */ },
+                        onLongClick = { showDeleteVoucherDialog = true } // Long-press triggers voucher deletion
+                    )
+                    .testTag("voucher_header_strip_${voucher.no}"),
+                color = Color(0xFF0C4E3E),
+                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "အမှတ် ${voucher.voucherNo}",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = "အချိန် : ${voucher.formattedDateTime}",
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+            }
+
+            // 2. Agent Sub-Header: Avatar + Name + Bet Count
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .background(Color(0xFF0C4E3E), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = voucher.agentName.take(1).uppercase(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "အိုင်ဒီ : ${voucher.agentId} , အမည် : ${voucher.agentName}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp,
+                        color = Color(0xFF1E293B)
+                    )
+                }
+
+                Text(
+                    text = "${betsList.size} ကွက်",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                    color = Color(0xFF475569)
+                )
+            }
+
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+
+            // 3. Vertical Table: Index | 2D Number | Bet Amount (No inline buttons)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                betsList.forEachIndexed { index, bet ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(
+                                onClick = { /* Normal tap */ },
+                                onLongClick = { selectedBetForAction = bet } // Long press individual bet row
+                            )
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                            .testTag("voucher_bet_row_${bet.number}"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Index (e.g., "1.")
+                        Text(
+                            text = "${index + 1}.",
+                            fontSize = 13.5.sp,
+                            color = Color(0xFF64748B),
+                            modifier = Modifier.weight(0.6f),
+                            textAlign = TextAlign.Start
+                        )
+                        // 2D Number (e.g., "12")
+                        Text(
+                            text = bet.number,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.5.sp,
+                            color = Color(0xFF0F766E),
+                            modifier = Modifier.weight(1.5f),
+                            textAlign = TextAlign.Center
+                        )
+                        // Amount (e.g., "500")
+                        Text(
+                            text = "${bet.amount}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF1E293B),
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.End
+                        )
+                    }
+                    HorizontalDivider(color = Color(0xFFF8FAFC), thickness = 1.dp)
+                }
+            }
+
+            HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 1.dp)
+
+            // 4. Footer Bar: Total Amount & Action Icons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "စုစုပေါင်း : ${voucher.totalAmount}",
+                    color = Color(0xFF15803D),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.5.sp
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy",
+                        tint = Color(0xFF475569),
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable { onCopyVoucher() }
+                            .testTag("copy_icon_${voucher.no}")
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share",
+                        tint = Color(0xFF475569),
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable {
+                                val receipt = buildAgentVoucherReceipt(voucher)
+                                ShareHelper.shareText(context, receipt)
+                            }
+                            .testTag("share_icon_${voucher.no}")
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Print,
+                        contentDescription = "Print",
+                        tint = Color(0xFF475569),
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable {
+                                val receipt = buildAgentVoucherReceipt(voucher)
+                                ShareHelper.printText(context, receipt)
+                            }
+                            .testTag("print_icon_${voucher.no}")
+                    )
+                }
+            }
+        }
     }
-    sb.append("စုစုပေါင်း=${voucher.totalAmount}")
-    return sb.toString()
+
+    // DIALOG 1: Entire Voucher Deletion Dialog (Header Long-Press)
+    if (showDeleteVoucherDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteVoucherDialog = false },
+            title = { Text("ဘောင်ချာ ဖျက်ရန်", fontWeight = FontWeight.Bold, color = Color(0xFFB91C1C)) },
+            text = { Text("ဘောင်ချာကို ဖျက်မည်လား?", fontSize = 15.sp, fontWeight = FontWeight.Bold) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteVoucherDialog = false
+                        onDeleteEntireVoucher(voucher)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                ) {
+                    Text("Yes (ဖျက်မည်)", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteVoucherDialog = false }) {
+                    Text("No (မဖျက်ပါ)", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // DIALOG 2: Single Bet Item Long-Press Action (Edit / Delete)
+    selectedBetForAction?.let { betItem ->
+        AlertDialog(
+            onDismissRequest = { selectedBetForAction = null },
+            title = { Text("ဂဏန်း ${betItem.number} ပြင်ဆင် / ဖျက်ရန်", fontWeight = FontWeight.Bold) },
+            text = { Text("လက်ရှိ ထိုးငွေပမာဏ : ${betItem.amount}") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        editAmountInput = betItem.amount.toString()
+                        isEditAmountDialogOpen = true
+                    }
+                ) {
+                    Text("ပြင်ဆင်မည် (Edit)", color = Color(0xFF0284C7), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteSingleBet(betItem)
+                        selectedBetForAction = null
+                    }
+                ) {
+                    Text("ဖျက်မည် (Delete)", color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // DIALOG 3: Edit Bet Amount Dialog
+    if (isEditAmountDialogOpen && selectedBetForAction != null) {
+        AlertDialog(
+            onDismissRequest = { isEditAmountDialogOpen = false },
+            title = { Text("ဂဏန်း ${selectedBetForAction!!.number} ပမာဏ ပြင်ရန်", fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = editAmountInput,
+                    onValueChange = { editAmountInput = it.filter { c -> c.isDigit() } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("ထိုးကြေး ငွေပမာဏ") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val newAmt = editAmountInput.toLongOrNull() ?: selectedBetForAction!!.amount
+                        onUpdateBetAmount(selectedBetForAction!!, newAmt)
+                        isEditAmountDialogOpen = false
+                        selectedBetForAction = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0C4E3E))
+                ) {
+                    Text("သိမ်းဆည်းမည်", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { isEditAmountDialogOpen = false }) {
+                    Text("မလုပ်တော့ပါ")
+                }
+            }
+        )
+    }
 }
 
-private fun buildReceiptText(voucher: Voucher): String {
-    val sb = StringBuilder()
-    sb.appendLine("=== 2D ဘောင်ချာ ===")
-    sb.appendLine("အမှတ် : ${voucher.no}")
-    sb.appendLine("နေ့စွဲ : ${voucher.date} (${voucher.session})")
-    sb.appendLine("အချိန် : ${voucher.time}")
-    sb.appendLine("ထိုးသူ : ${voucher.agent} (အိုင်ဒီ: ${voucher.agentId})")
-    sb.appendLine("--------------------------")
-    voucher.items.forEach { itm ->
-        sb.appendLine("${itm.n} = ${fmt(itm.a)}")
+/**
+ * Overload for VoucherEntity
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun VoucherCardItem(
+    voucher: VoucherEntity,
+    betsList: List<BetItemEntity>,
+    onUpdateBetAmount: (BetItemEntity, Long) -> Unit,
+    onDeleteSingleBet: (BetItemEntity) -> Unit,
+    onDeleteEntireVoucher: (VoucherEntity) -> Unit,
+    onCopyVoucher: () -> Unit
+) {
+    VoucherCardItem(
+        voucher = voucher.toDomainVoucher(),
+        betsList = betsList,
+        onUpdateBetAmount = onUpdateBetAmount,
+        onDeleteSingleBet = onDeleteSingleBet,
+        onDeleteEntireVoucher = { onDeleteEntireVoucher(voucher) },
+        onCopyVoucher = onCopyVoucher
+    )
+}
+
+/**
+ * Standard VoucherHistoryTableScreen2D implementation for backward compatibility with tests
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VoucherHistoryTableScreen2D(
+    vouchers: List<VoucherEntity>,
+    viewModel: Lottery2DViewModel,
+    onBackClick: () -> Unit
+) {
+    val context = LocalContext.current
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("တင်ပြီးမှတ်တမ်း", fontWeight = FontWeight.Bold, color = Color.White) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF235347))
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color(0xFFF7F9FA))
+                .padding(12.dp)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // TABLE HEADER: စဉ် | အကြိမ် | တင်ကွက်ငွေပမာဏ | ကူးမည်
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF235347))
+                            .padding(vertical = 10.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("စဉ်", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(0.9f), textAlign = TextAlign.Center)
+                        Text("အကြိမ်", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.Center)
+                        Text("တင်ကွက်ငွေပမာဏ", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1.4f), textAlign = TextAlign.Center)
+                        Text("ကူးမည်", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(0.7f), textAlign = TextAlign.Center)
+                    }
+
+                    if (vouchers.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("တင်ပြီးမှတ်တမ်း မရှိသေးပါ", color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(vouchers, key = { it.voucherNo }) { voucher ->
+                                val bets by viewModel.getBetsForVoucher(voucher.voucherNo).collectAsState(initial = emptyList())
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            copy2DVoucherToClipboard(context, voucher.voucherNo, voucher.sessionName, bets, voucher.totalAmount)
+                                        }
+                                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(modifier = Modifier.weight(0.9f), contentAlignment = Alignment.Center) {
+                                        Surface(color = Color(0xFFFFEB3B), shape = RoundedCornerShape(4.dp)) {
+                                            Text(
+                                                text = "No. ${voucher.voucherNo}",
+                                                color = Color.Black,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = voucher.sessionName,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF235347),
+                                        modifier = Modifier.weight(1.2f),
+                                        textAlign = TextAlign.Center
+                                    )
+
+                                    Text(
+                                        text = "${voucher.totalAmount}",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF111111),
+                                        modifier = Modifier.weight(1.4f),
+                                        textAlign = TextAlign.Center
+                                    )
+
+                                    Box(modifier = Modifier.weight(0.7f), contentAlignment = Alignment.Center) {
+                                        IconButton(
+                                            onClick = {
+                                                copy2DVoucherToClipboard(context, voucher.voucherNo, voucher.sessionName, bets, voucher.totalAmount)
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.ContentCopy,
+                                                contentDescription = "Copy Voucher",
+                                                tint = Color(0xFF235347),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-    sb.appendLine("--------------------------")
-    sb.appendLine("စုစုပေါင်း : ${fmt(voucher.totalAmount)}")
-    sb.appendLine("==========================")
-    return sb.toString()
 }
