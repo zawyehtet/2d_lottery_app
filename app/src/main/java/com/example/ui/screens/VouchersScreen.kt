@@ -48,6 +48,7 @@ import com.example.data.VoucherEntity
 import com.example.ui.Lottery2DViewModel
 import com.example.ui.MainViewModel
 import com.example.ui.components.AppHeader
+import com.example.ui.components.AppOutlinedTextField
 import com.example.ui.components.RoundRequiredHelperBanner
 import com.example.ui.components.SearchPill
 import com.example.ui.components.ShareHelper
@@ -101,7 +102,6 @@ fun copyVoucherWithHeaderAndFooter(
 
     val finalClipboardText = builder.toString()
 
-    // Copy directly to system clipboard
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val clip = ClipData.newPlainText("Voucher No. $voucherNo", finalClipboardText)
     clipboard.setPrimaryClip(clip)
@@ -153,8 +153,11 @@ fun formatVoucherCopyText(voucher: Voucher): String {
 }
 
 /**
- * Main Voucher History Screen ("ဘောင်ချာများ စာရင်း")
- * Displays individual Agent Voucher Cards strictly based on reference layout.
+ * Main Voucher History Screen ("ဘောင်ချာများ / တင်ပြီးမှတ်တမ်း")
+ * Features:
+ * 1. Full-height LazyColumn smoothly utilizing vertical space (Bottom summary footer removed).
+ * 2. Pure Myanmar long-press bet action dialog with side-by-side "ပြင်ဆင်မည်" and "ဖျက်မည်" buttons.
+ * 3. Edit bet dialog allowing updates to BOTH 2D Number and Bet Amount with side-by-side "မလုပ်တော့ပါ" and "သိမ်းဆည်းမည်".
  */
 @Composable
 fun VouchersScreen(
@@ -193,7 +196,12 @@ fun VouchersScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize().background(LuckyBg)) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(LuckyBg)
+            .navigationBarsPadding()
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             AppHeader(
                 title = if (filterAgent == "ALL") {
@@ -216,7 +224,7 @@ fun VouchersScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 8.dp)
+                    .padding(top = 6.dp)
             ) {
                 RoundRequiredHelperBanner(visible = !hasRound)
 
@@ -249,17 +257,19 @@ fun VouchersScreen(
                         )
                     }
                 } else {
+                    // Full vertical height LazyColumn with bottom padding for smooth scrolling
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
+                            .weight(1f),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)
                     ) {
                         items(filteredVouchers, key = { it.id }) { voucher ->
                             VoucherCardItem(
                                 voucher = voucher,
                                 betsList = voucher.items,
-                                onUpdateBetAmount = { betItem, newAmt ->
-                                    viewModel.editNumber(betItem.id, betItem.number, newAmt)
+                                onUpdateBet = { betItem, newNum, newAmt ->
+                                    viewModel.editNumber(betItem.id, newNum, newAmt)
                                 },
                                 onDeleteSingleBet = { betItem ->
                                     viewModel.deleteNumber(betItem.id)
@@ -276,39 +286,6 @@ fun VouchersScreen(
                         }
                     }
                 }
-
-                // Summary Footer
-                if (filteredVouchers.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0C4E3E)),
-                        elevation = CardDefaults.cardElevation(2.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "စုစုပေါင်းဘောင်ချာ: ${filteredVouchers.size} စောင်",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.5.sp
-                            )
-                            Text(
-                                text = "စုစုပေါင်းရောင်းကြေး: ${filteredVouchers.sumOf { it.totalAmount }}",
-                                color = Color.White,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -319,7 +296,7 @@ fun VouchersScreen(
  * 1. Dark Green Header Strip (#0C4E3E) without '+' button, long-press to delete voucher
  * 2. Agent Sub-Header with circular avatar badge + name + bet count badge
  * 3. Bet Numbers Vertical Table: Index | 2D Number (#0F766E) | Bet Amount (#1E293B)
- *    Long-press row triggers Action Dialog: Edit amount or Delete single bet
+ *    Long-press row triggers Action Dialog: Side-by-side "ပြင်ဆင်မည်" (Left) and "ဖျက်မည်" (Right)
  * 4. Card Footer Bar: Total Amount in green (#15803D) + Copy, Share, Print action icons
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -327,7 +304,7 @@ fun VouchersScreen(
 fun VoucherCardItem(
     voucher: Voucher,
     betsList: List<BetItemEntity>,
-    onUpdateBetAmount: (BetItemEntity, Long) -> Unit,
+    onUpdateBet: (BetItemEntity, String, Long) -> Unit,
     onDeleteSingleBet: (BetItemEntity) -> Unit,
     onDeleteEntireVoucher: (Voucher) -> Unit,
     onCopyVoucher: () -> Unit
@@ -335,6 +312,7 @@ fun VoucherCardItem(
     var showDeleteVoucherDialog by remember { mutableStateOf(false) }
     var selectedBetForAction by remember { mutableStateOf<BetItemEntity?>(null) }
     var isEditAmountDialogOpen by remember { mutableStateOf(false) }
+    var editNumberInput by remember { mutableStateOf("") }
     var editAmountInput by remember { mutableStateOf("") }
     val context = LocalContext.current
 
@@ -529,90 +507,211 @@ fun VoucherCardItem(
     if (showDeleteVoucherDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteVoucherDialog = false },
-            title = { Text("ဘောင်ချာ ဖျက်ရန်", fontWeight = FontWeight.Bold, color = Color(0xFFB91C1C)) },
-            text = { Text("ဘောင်ချာကို ဖျက်မည်လား?", fontSize = 15.sp, fontWeight = FontWeight.Bold) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteVoucherDialog = false
-                        onDeleteEntireVoucher(voucher)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
-                ) {
-                    Text("Yes (ဖျက်မည်)", fontWeight = FontWeight.Bold)
-                }
+            containerColor = Color.White,
+            shape = RoundedCornerShape(14.dp),
+            title = {
+                Text(
+                    text = "ဘောင်ချာ ဖျက်ရန်",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFB91C1C),
+                    fontSize = 17.sp
+                )
             },
-            dismissButton = {
-                OutlinedButton(onClick = { showDeleteVoucherDialog = false }) {
-                    Text("No (မဖျက်ပါ)", fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
-    // DIALOG 2: Single Bet Item Long-Press Action (Edit / Delete)
-    selectedBetForAction?.let { betItem ->
-        AlertDialog(
-            onDismissRequest = { selectedBetForAction = null },
-            title = { Text("ဂဏန်း ${betItem.number} ပြင်ဆင် / ဖျက်ရန်", fontWeight = FontWeight.Bold) },
-            text = { Text("လက်ရှိ ထိုးငွေပမာဏ : ${betItem.amount}") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        editAmountInput = betItem.amount.toString()
-                        isEditAmountDialogOpen = true
-                    }
-                ) {
-                    Text("ပြင်ဆင်မည် (Edit)", color = Color(0xFF0284C7), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteSingleBet(betItem)
-                        selectedBetForAction = null
-                    }
-                ) {
-                    Text("ဖျက်မည် (Delete)", color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
-    // DIALOG 3: Edit Bet Amount Dialog
-    if (isEditAmountDialogOpen && selectedBetForAction != null) {
-        AlertDialog(
-            onDismissRequest = { isEditAmountDialogOpen = false },
-            title = { Text("ဂဏန်း ${selectedBetForAction!!.number} ပမာဏ ပြင်ရန်", fontWeight = FontWeight.Bold) },
             text = {
-                OutlinedTextField(
-                    value = editAmountInput,
-                    onValueChange = { editAmountInput = it.filter { c -> c.isDigit() } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    label = { Text("ထိုးကြေး ငွေပမာဏ") },
-                    singleLine = true
+                Text(
+                    text = "ဘောင်ချာကို ဖျက်မည်လား?",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF334155)
                 )
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        val newAmt = editAmountInput.toLongOrNull() ?: selectedBetForAction!!.amount
-                        onUpdateBetAmount(selectedBetForAction!!, newAmt)
-                        isEditAmountDialogOpen = false
-                        selectedBetForAction = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0C4E3E))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("သိမ်းဆည်းမည်", fontWeight = FontWeight.Bold)
+                    OutlinedButton(
+                        onClick = { showDeleteVoucherDialog = false },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("မဖျက်ပါ", fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                    }
+                    Button(
+                        onClick = {
+                            showDeleteVoucherDialog = false
+                            onDeleteEntireVoucher(voucher)
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                    ) {
+                        Text("ဖျက်မည်", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { isEditAmountDialogOpen = false }) {
-                    Text("မလုပ်တော့ပါ")
-                }
-            }
+            dismissButton = null
         )
     }
+
+    // DIALOG 2: Single Bet Item Long-Press Action (Pure Myanmar Text, Side-by-Side Horizontal Buttons)
+    selectedBetForAction?.let { betItem ->
+        AlertDialog(
+            onDismissRequest = { selectedBetForAction = null },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(14.dp),
+            title = {
+                Text(
+                    text = "ဂဏန်း ${betItem.number} စီမံရန်",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF1E293B)
+                )
+            },
+            text = {
+                Text(
+                    text = "လက်ရှိ ထိုးငွေပမာဏ : ${betItem.amount}",
+                    fontSize = 14.sp,
+                    color = Color(0xFF475569)
+                )
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Left: "ပြင်ဆင်မည်"
+                    Button(
+                        onClick = {
+                            editNumberInput = betItem.number
+                            editAmountInput = betItem.amount.toString()
+                            isEditAmountDialogOpen = true
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                    ) {
+                        Text("ပြင်ဆင်မည်", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                    // Right: "ဖျက်မည်"
+                    Button(
+                        onClick = {
+                            onDeleteSingleBet(betItem)
+                            selectedBetForAction = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                    ) {
+                        Text("ဖျက်မည်", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
+
+    // DIALOG 3: Edit Bet Dialog (Updates BOTH 2D Number and Bet Amount, Side-by-Side "မလုပ်တော့ပါ" and "သိမ်းဆည်းမည်")
+    if (isEditAmountDialogOpen && selectedBetForAction != null) {
+        AlertDialog(
+            onDismissRequest = { isEditAmountDialogOpen = false },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(14.dp),
+            title = {
+                Text(
+                    text = "ဂဏန်း ပြင်ဆင်ရန်",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF0C4E3E)
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    AppOutlinedTextField(
+                        value = editNumberInput,
+                        onValueChange = { editNumberInput = it.filter { c -> c.isDigit() }.take(2) },
+                        label = { Text("ဂဏန်း") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    AppOutlinedTextField(
+                        value = editAmountInput,
+                        onValueChange = { editAmountInput = it.filter { c -> c.isDigit() } },
+                        label = { Text("ငွေပမာဏ") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Left: "မလုပ်တော့ပါ"
+                    OutlinedButton(
+                        onClick = { isEditAmountDialogOpen = false },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("မလုပ်တော့ပါ", fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                    }
+                    // Right: "သိမ်းဆည်းမည်"
+                    Button(
+                        onClick = {
+                            val cleanNum = editNumberInput.trim()
+                            val newAmt = editAmountInput.toLongOrNull() ?: 0L
+                            if (cleanNum.length != 2) {
+                                Toast.makeText(context, "ဂဏန်း ၂ လုံး ဖြစ်ရပါမည်", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (newAmt <= 0L) {
+                                Toast.makeText(context, "ငွေပမာဏ မှားယွင်းနေပါသည်", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            onUpdateBet(selectedBetForAction!!, cleanNum, newAmt)
+                            isEditAmountDialogOpen = false
+                            selectedBetForAction = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0C4E3E))
+                    ) {
+                        Text("သိမ်းဆည်းမည်", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
+}
+
+/**
+ * Overload for Voucher with onUpdateBetAmount
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun VoucherCardItem(
+    voucher: Voucher,
+    betsList: List<BetItemEntity>,
+    onUpdateBetAmount: (BetItemEntity, Long) -> Unit,
+    onDeleteSingleBet: (BetItemEntity) -> Unit,
+    onDeleteEntireVoucher: (Voucher) -> Unit,
+    onCopyVoucher: () -> Unit
+) {
+    VoucherCardItem(
+        voucher = voucher,
+        betsList = betsList,
+        onUpdateBet = { bet, _, newAmt -> onUpdateBetAmount(bet, newAmt) },
+        onDeleteSingleBet = onDeleteSingleBet,
+        onDeleteEntireVoucher = onDeleteEntireVoucher,
+        onCopyVoucher = onCopyVoucher
+    )
 }
 
 /**
@@ -631,7 +730,7 @@ fun VoucherCardItem(
     VoucherCardItem(
         voucher = voucher.toDomainVoucher(),
         betsList = betsList,
-        onUpdateBetAmount = onUpdateBetAmount,
+        onUpdateBet = { bet, _, newAmt -> onUpdateBetAmount(bet, newAmt) },
         onDeleteSingleBet = onDeleteSingleBet,
         onDeleteEntireVoucher = { onDeleteEntireVoucher(voucher) },
         onCopyVoucher = onCopyVoucher
