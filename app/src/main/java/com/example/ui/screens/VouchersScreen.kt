@@ -86,7 +86,7 @@ fun VouchersScreen(
                     v.agent.contains(searchQuery, ignoreCase = true) ||
                     v.no.toString() == searchQuery.trim() ||
                     v.items.any { it.n == searchQuery.trim() })
-        }
+        }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
     }
 
     Box(modifier = modifier.fillMaxSize().background(LuckyBg)) {
@@ -168,8 +168,9 @@ fun VouchersScreen(
                                 deletingVoucherId = voucher.id
                             },
                             onCopy = {
-                                val text = buildReceiptText(voucher)
+                                val text = formatVoucherCopyText(voucher)
                                 ShareHelper.copyToClipboard(context, text)
+                                viewModel.showToast("တင်ကွက် ကူးယူပြီးပါပြီ")
                             },
                             onShare = {
                                 val text = buildReceiptText(voucher)
@@ -481,10 +482,23 @@ fun VoucherCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    IconButton(onClick = onCopy, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "ကူးယူရန်", tint = LuckyHeader, modifier = Modifier.size(18.dp))
+                    Button(
+                        onClick = onCopy,
+                        colors = ButtonDefaults.buttonColors(containerColor = LuckyHeader, contentColor = Color.White),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .testTag("voucher_copy_btn_${voucher.id}")
+                    ) {
+                        Text(
+                            text = "📋 တင်ကွက် ကူးမည်",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Default.Share, contentDescription = "မျှဝေရန်", tint = LuckyHeader, modifier = Modifier.size(18.dp))
@@ -496,6 +510,16 @@ fun VoucherCard(
             }
         }
     }
+}
+
+fun formatVoucherCopyText(voucher: Voucher): String {
+    val sb = StringBuilder()
+    sb.appendLine("No. ${voucher.no}=${voucher.session}")
+    voucher.items.forEach { itm ->
+        sb.appendLine("${itm.n}=${itm.a}")
+    }
+    sb.append("စုစုပေါင်း=${voucher.totalAmount}")
+    return sb.toString()
 }
 
 private fun buildReceiptText(voucher: Voucher): String {

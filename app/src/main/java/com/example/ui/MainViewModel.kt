@@ -104,12 +104,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             winningNum: String?
         ): List<NumberSummary> {
             val cleanWin = winningNum?.trim()?.toAsciiDigits()
-            if (cleanWin.isNullOrEmpty() || cleanWin.length != 2 || !cleanWin.all { it.isDigit() }) {
-                return allNumbers.sortedBy { it.n }
+            val hasValidWin = !cleanWin.isNullOrEmpty() && cleanWin.length == 2 && cleanWin.all { it.isDigit() }
+
+            val winItem = if (hasValidWin) {
+                allNumbers.firstOrNull { it.n == cleanWin } ?: NumberSummary(cleanWin!!, 0, 0L, 0L, 0L)
+            } else null
+
+            val pool = if (hasValidWin) {
+                allNumbers.filter { it.n != cleanWin }
+            } else {
+                allNumbers
             }
-            val winItem = allNumbers.firstOrNull { it.n == cleanWin } ?: NumberSummary(cleanWin, 0, 0L, 0L, 0L)
-            val remaining = allNumbers.filter { it.n != cleanWin }.sortedBy { it.n }
-            return listOf(winItem) + remaining
+
+            // Tier 2: Active placed bets (totalBet > 0), sorted strictly by Bet Amount DESCENDING (အများမှ အနည်း)
+            // If equal, tie-break numerically ASCENDING (ငယ်စဉ်ကြီးလိုက်: e.g., "05" before "24")
+            val activeBets = pool
+                .filter { it.totalBet > 0L }
+                .sortedWith(
+                    compareByDescending<NumberSummary> { it.totalBet }
+                        .thenBy { it.n }
+                )
+
+            // Tier 3: Unplaced bets (totalBet == 0), positioned below active bets, sorted strictly in numerical order ASCENDING (00 to 99)
+            val zeroBets = pool
+                .filter { it.totalBet <= 0L }
+                .sortedBy { it.n }
+
+            return if (winItem != null) {
+                listOf(winItem) + activeBets + zeroBets
+            } else {
+                activeBets + zeroBets
+            }
         }
 
         fun parseAmountOrZero(input: String): Long {
@@ -2340,18 +2365,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val updated = _sessions.value.map { if (it.id == sessionId) normalized else it }
         _sessions.value = updated
         repository.updateSessionById(sessionId, normalized) ?: repository.saveSessions(updated)
+
+        if (existing.name != normalized.name) {
+            val oldName = existing.name
+            val newName = normalized.name
+            _vouchers.value = _vouchers.value.map { if (it.session == oldName) it.copy(session = newName) else it }
+            _wins.value = _wins.value.map { if (it.session == oldName) it.copy(session = newName) else it }
+            _settled.value = _settled.value.map { if (it.session == oldName) it.copy(session = newName) else it }
+            _layoffs.value = _layoffs.value.map { if (it.session == oldName) it.copy(session = newName) else it }
+            _agents.value = _agents.value.map { if (it.roundNumber == oldName) it.copy(roundNumber = newName) else it }
+        }
+
         if (_selectedSession.value == existing.name) {
-            if (existing.name != normalized.name) {
-                val activeDate = _selectedDate.value
-                val currentSessionAgents = repository.loadAgentsForDateAndRound(activeDate, existing.name)
-                currentSessionAgents.forEach { ag ->
-                    repository.insertOrUpdateAgentForSession(
-                        activeDate,
-                        normalized.name,
-                        ag.copy(date = activeDate, roundNumber = normalized.name)
-                    )
-                }
-            }
             _selectedSession.value = normalized.name
             refreshActiveAgentsForCurrentDraw(resetDraftOnSessionChange = false)
         }
@@ -2378,6 +2403,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val updated = _sessions.value.map { if (it.name == oldName) normalized else it }
         _sessions.value = updated
         repository.saveSessions(updated)
+        if (oldName != normalized.name) {
+            repository.renameSessionAcrossDatabase(oldName, normalized.name)
+            val newName = normalized.name
+            _vouchers.value = _vouchers.value.map { if (it.session == oldName) it.copy(session = newName) else it }
+            _wins.value = _wins.value.map { if (it.session == oldName) it.copy(session = newName) else it }
+            _settled.value = _settled.value.map { if (it.session == oldName) it.copy(session = newName) else it }
+            _layoffs.value = _layoffs.value.map { if (it.session == oldName) it.copy(session = newName) else it }
+            _agents.value = _agents.value.map { if (it.roundNumber == oldName) it.copy(roundNumber = newName) else it }
+        }
         if (_selectedSession.value == oldName) {
             _selectedSession.value = normalized.name
             refreshActiveAgentsForCurrentDraw(resetDraftOnSessionChange = false)

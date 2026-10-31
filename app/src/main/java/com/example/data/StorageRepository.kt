@@ -127,12 +127,49 @@ class StorageRepository(context: Context) {
 
     fun updateSessionById(sessionId: Long, updatedSession: Session): List<Session>? {
         val current = loadSessions()
-        if (current.none { it.id == sessionId }) return null
+        val target = current.firstOrNull { it.id == sessionId } ?: return null
+        val oldName = target.name
+        val newName = updatedSession.name
         val updated = current.map { s ->
             if (s.id == sessionId) updatedSession.copy(id = sessionId) else s
         }
         saveSessions(updated)
+        if (oldName.isNotBlank() && newName.isNotBlank() && oldName != newName) {
+            renameSessionAcrossDatabase(oldName, newName)
+        }
         return updated
+    }
+
+    fun renameSessionAcrossDatabase(oldName: String, newName: String) {
+        if (oldName.isBlank() || newName.isBlank() || oldName == newName) return
+        try {
+            voucherDao.renameRoundSync(oldName, newName)
+            winningNumberDao.renameRoundSync(oldName, newName)
+            settlementDao.renameRoundSync(oldName, newName)
+            agentDao.renameRoundSync(oldName, newName)
+
+            val currentVouchers = loadVouchers()
+            val updatedVouchers = currentVouchers.map { if (it.session == oldName) it.copy(session = newName) else it }
+            saveVouchers(updatedVouchers)
+
+            val currentWins = loadWins()
+            val updatedWins = currentWins.map { if (it.session == oldName) it.copy(session = newName) else it }
+            saveWins(updatedWins)
+
+            val currentSettled = loadSettled()
+            val updatedSettled = currentSettled.map { if (it.session == oldName) it.copy(session = newName) else it }
+            saveSettled(updatedSettled)
+
+            val currentLayoffs = loadLayoffs()
+            val updatedLayoffs = currentLayoffs.map { if (it.session == oldName) it.copy(session = newName) else it }
+            saveLayoffs(updatedLayoffs)
+
+            val currentAgents = loadAgents()
+            val updatedAgents = currentAgents.map { if (it.roundNumber == oldName) it.copy(roundNumber = newName) else it }
+            saveAgents(updatedAgents)
+        } catch (e: Exception) {
+            Log.e("StorageRepository", "Error renaming session across database", e)
+        }
     }
 
     fun deleteSessionById(sessionId: Long): List<Session>? {
@@ -290,7 +327,7 @@ class StorageRepository(context: Context) {
         return try {
             val jsonStr = prefs.getString(KEY_VOUCHERS, null)
             if (jsonStr.isNullOrEmpty()) {
-                voucherDao.getAllVouchersSync().map { it.toDomainVoucher() }
+                voucherDao.getAllVouchersSync().map { it.toDomainVoucher() }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
             } else {
                 val arr = JSONArray(jsonStr)
                 val list = mutableListOf<Voucher>()
@@ -332,9 +369,10 @@ class StorageRepository(context: Context) {
                         )
                     )
                 }
+                val sortedList = list.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
                 voucherDao.clearAllVouchersSync()
-                voucherDao.insertAllVouchersSync(list.map { VoucherEntity.fromDomainVoucher(it) })
-                list
+                voucherDao.insertAllVouchersSync(sortedList.map { VoucherEntity.fromDomainVoucher(it) })
+                sortedList
             }
         } catch (e: Exception) {
             Log.e("StorageRepository", "Error loading vouchers", e)

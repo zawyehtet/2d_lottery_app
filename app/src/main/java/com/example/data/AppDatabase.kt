@@ -171,12 +171,12 @@ data class SessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val roundName: String,
     val commissionPercent: Double,
-    val multiplier: Int
+    val multiplier: Double
 ) {
     fun toDomainSession(): Session = Session(
         name = roundName,
         rate = commissionPercent,
-        mult = multiplier.toDouble(),
+        mult = multiplier,
         id = id
     )
 
@@ -185,17 +185,17 @@ data class SessionEntity(
             id = s.id,
             roundName = s.name,
             commissionPercent = s.rate,
-            multiplier = s.mult.toInt()
+            multiplier = s.mult
         )
     }
 }
 
 @Dao
 interface VoucherDao {
-    @Query("SELECT * FROM vouchers WHERE date = :date AND roundNumber = :round ORDER BY voucherId ASC")
+    @Query("SELECT * FROM vouchers WHERE date = :date AND roundNumber = :round ORDER BY voucherNo ASC, voucherId ASC")
     fun getVouchersByDateAndRound(date: String, round: String): Flow<List<VoucherEntity>>
 
-    @Query("SELECT * FROM vouchers WHERE date = :date AND roundNumber = :round ORDER BY voucherId ASC")
+    @Query("SELECT * FROM vouchers WHERE date = :date AND roundNumber = :round ORDER BY voucherNo ASC, voucherId ASC")
     fun getVouchersByDateAndRoundSync(date: String, round: String): List<VoucherEntity>
 
     @Query("SELECT DISTINCT roundNumber FROM vouchers WHERE date = :date")
@@ -204,7 +204,7 @@ interface VoucherDao {
     @Query("SELECT DISTINCT roundNumber FROM vouchers WHERE date = :date")
     fun getRoundsByDateSync(date: String): List<String>
 
-    @Query("SELECT * FROM vouchers ORDER BY voucherId DESC")
+    @Query("SELECT * FROM vouchers ORDER BY voucherNo ASC, voucherId ASC")
     fun getAllVouchersSync(): List<VoucherEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -212,6 +212,9 @@ interface VoucherDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAllVouchersSync(vouchers: List<VoucherEntity>)
+
+    @Query("UPDATE vouchers SET roundNumber = :newName WHERE roundNumber = :oldName")
+    fun renameRoundSync(oldName: String, newName: String)
 
     @Query("DELETE FROM vouchers WHERE voucherId = :id")
     fun deleteVoucherByIdSync(id: Long)
@@ -237,7 +240,10 @@ interface WinningNumberDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAllWinningNumbersSync(wins: List<WinningNumberEntity>)
 
-    @Query("SELECT * FROM winning_numbers")
+    @Query("UPDATE winning_numbers SET roundNumber = :newName WHERE roundNumber = :oldName")
+    fun renameRoundSync(oldName: String, newName: String)
+
+    @Query("SELECT * FROM winning_numbers ORDER BY id ASC")
     fun getAllWinningNumbersSync(): List<WinningNumberEntity>
 
     @Query("SELECT DISTINCT roundNumber FROM winning_numbers WHERE date = :date")
@@ -264,7 +270,10 @@ interface SettlementDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAllSettlementsSync(settlements: List<SettlementEntity>)
 
-    @Query("SELECT * FROM settlements ORDER BY id DESC")
+    @Query("UPDATE settlements SET roundNumber = :newName WHERE roundNumber = :oldName")
+    fun renameRoundSync(oldName: String, newName: String)
+
+    @Query("SELECT * FROM settlements ORDER BY id ASC")
     fun getAllSettlementsSync(): List<SettlementEntity>
 
     @Query("SELECT DISTINCT roundNumber FROM settlements WHERE date = :date")

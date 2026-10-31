@@ -47,6 +47,9 @@ interface AgentDao {
     @Query("SELECT DISTINCT roundNumber FROM agents WHERE date = :date")
     fun getRoundsByDateSync(date: String): List<String>
 
+    @Query("UPDATE agents SET roundNumber = :newName WHERE roundNumber = :oldName")
+    fun renameRoundSync(oldName: String, newName: String)
+
     @Query("DELETE FROM agents")
     fun clearAllAgentsSync()
 }

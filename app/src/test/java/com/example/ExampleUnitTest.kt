@@ -378,35 +378,72 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun testSort2DNumbersWithWinningPinsToRow1() {
-        val all100 = (0..99).map { i ->
-            val numStr = String.format(java.util.Locale.US, "%02d", i)
-            com.example.ui.NumberSummary(n = numStr, entryCount = 1, totalBet = (i * 100).toLong(), layoffAmount = 0L, netAmount = (i * 100).toLong())
-        }
+    fun testMultiTierSortingWithAndWithoutWinningNumber() {
+        val testData = listOf(
+            com.example.ui.NumberSummary(n = "05", entryCount = 1, totalBet = 500L, layoffAmount = 0L, netAmount = 500L),
+            com.example.ui.NumberSummary(n = "24", entryCount = 1, totalBet = 500L, layoffAmount = 0L, netAmount = 500L), // tie with 05
+            com.example.ui.NumberSummary(n = "99", entryCount = 1, totalBet = 2000L, layoffAmount = 0L, netAmount = 2000L), // highest active
+            com.example.ui.NumberSummary(n = "25", entryCount = 1, totalBet = 1000L, layoffAmount = 0L, netAmount = 1000L), // winning candidate
+            com.example.ui.NumberSummary(n = "00", entryCount = 0, totalBet = 0L, layoffAmount = 0L, netAmount = 0L), // zero bet
+            com.example.ui.NumberSummary(n = "01", entryCount = 0, totalBet = 0L, layoffAmount = 0L, netAmount = 0L)  // zero bet
+        )
 
-        // Test with winning number "25"
-        val sortedWithWin = com.example.ui.MainViewModel.sort2DNumbersWithWinning(all100, "25")
-        assertEquals(100, sortedWithWin.size)
-        // Row 1 (index 0) MUST be the winning number "25"
+        // Case 1: Winning number "25" is set
+        val sortedWithWin = com.example.ui.MainViewModel.sort2DNumbersWithWinning(testData, "25")
+        assertEquals(6, sortedWithWin.size)
+        // Row 1: Winning Number "25"
         assertEquals("25", sortedWithWin[0].n)
-        assertEquals(2500L, sortedWithWin[0].totalBet)
+        assertEquals(1000L, sortedWithWin[0].totalBet)
+        // Row 2: Highest active bet "99" (2000)
+        assertEquals("99", sortedWithWin[1].n)
+        assertEquals(2000L, sortedWithWin[1].totalBet)
+        // Rows 3 & 4: Equal active bets (500) -> tie-broken numerically ASCENDING ("05" before "24")
+        assertEquals("05", sortedWithWin[2].n)
+        assertEquals("24", sortedWithWin[3].n)
+        // Rows 5 & 6: Zero bets -> sorted numerically ASCENDING ("00", "01")
+        assertEquals("00", sortedWithWin[4].n)
+        assertEquals("01", sortedWithWin[5].n)
 
-        // Remaining 99 numbers must follow sequentially 00..99 (excluding 25)
-        val remaining = sortedWithWin.subList(1, 100)
-        assertEquals(99, remaining.size)
-        assertFalse(remaining.any { it.n == "25" })
-        assertEquals("00", remaining[0].n)
-        assertEquals("01", remaining[1].n)
-        assertEquals("24", remaining[24].n)
-        assertEquals("26", remaining[25].n)
-        assertEquals("99", remaining[98].n)
+        // Case 2: No winning number is set (null)
+        val sortedWithoutWin = com.example.ui.MainViewModel.sort2DNumbersWithWinning(testData, null)
+        assertEquals(6, sortedWithoutWin.size)
+        // Row 1: Highest active bet "99" (2000)
+        assertEquals("99", sortedWithoutWin[0].n)
+        // Row 2: Next highest "25" (1000)
+        assertEquals("25", sortedWithoutWin[1].n)
+        // Rows 3 & 4: Equal bets "05" and "24" (500)
+        assertEquals("05", sortedWithoutWin[2].n)
+        assertEquals("24", sortedWithoutWin[3].n)
+        // Rows 5 & 6: Zero bets "00" and "01"
+        assertEquals("00", sortedWithoutWin[4].n)
+        assertEquals("01", sortedWithoutWin[5].n)
+    }
 
-        // When winning number is null or empty, numbers are sorted sequentially
-        val sortedWithoutWin = com.example.ui.MainViewModel.sort2DNumbersWithWinning(all100, null)
-        assertEquals(100, sortedWithoutWin.size)
-        assertEquals("00", sortedWithoutWin[0].n)
-        assertEquals("01", sortedWithoutWin[1].n)
-        assertEquals("99", sortedWithoutWin[99].n)
+    @Test
+    fun testStandardizedVoucherCopyFormat() {
+        val voucher = com.example.data.Voucher(
+            id = 101L,
+            no = 1,
+            agent = "ကိုအောင်",
+            agentId = 1,
+            date = "2026-10-30",
+            session = "12:01 PM",
+            time = "10:30:00",
+            items = listOf(
+                com.example.data.BetItem(n = "12", a = 500L),
+                com.example.data.BetItem(n = "34", a = 1000L)
+            )
+        )
+
+        val formattedText = com.example.ui.screens.formatVoucherCopyText(voucher)
+        val expected = """
+            No. 1=12:01 PM
+            12=500
+            34=1000
+            စုစုပေါင်း=1500
+        """.trimIndent()
+
+        assertEquals(expected, formattedText)
     }
 
     @Test

@@ -93,11 +93,7 @@ fun NumbersScreen(
     }
 
     val sortedSummaries = remember(rawSummaries, formattedWinNum, hasValidWinNum) {
-        if (hasValidWinNum) {
-            viewModel.sort2DNumbersWithWinning(rawSummaries, formattedWinNum)
-        } else {
-            rawSummaries.sortedBy { it.n }
-        }
+        viewModel.sort2DNumbersWithWinning(rawSummaries, if (hasValidWinNum) formattedWinNum else null)
     }
 
     val filteredSummaries = sortedSummaries.filter {

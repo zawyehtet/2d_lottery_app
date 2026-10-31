@@ -674,7 +674,10 @@ fun SettingsScreen(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            wins.forEach { w: WinRecord ->
+                            val oldestFirstWins = remember(wins) {
+                                wins.sortedWith(compareBy<WinRecord> { it.date }.thenBy { it.session })
+                            }
+                            oldestFirstWins.forEach { w: WinRecord ->
                                 val rowKey = "${w.date}|${w.session}"
                                 Box(modifier = Modifier.fillMaxWidth()) {
                                     Row(
@@ -870,10 +873,17 @@ fun SettingsScreen(
     // Dialog 3: Sessions (Rounds) Management — "အကြိမ်ရေ"
     if (activeDialog == "SESSIONS") {
         Dialog(
-            onDismissRequest = { activeDialog = null },
+            onDismissRequest = {
+                editingSessionId = null
+                editingSessionOldName = null
+                activeDialog = null
+            },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             val showSessionSaveBtn = MainViewModel.shouldShowRoundSaveButton(newSessionName)
+            val oldestFirstSessions = remember(sessions) {
+                sessions.sortedBy { it.id }
+            }
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -898,7 +908,135 @@ fun SettingsScreen(
                         modifier = Modifier.testTag("manage_rounds_title")
                     )
 
-                    // Proportional 4-Column Table: [ စဉ် | အကြိမ်အမည် | ကော်မရှင် % | အဆ ]
+                    // 1. INPUT FORM AT THE TOP
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (editingSessionId != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(LuckyHeader.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "ပြင်ဆင်နေသည် : ${editingSessionOldName ?: ""}",
+                                    color = LuckyHeader,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                TextButton(
+                                    onClick = {
+                                        editingSessionId = null
+                                        editingSessionOldName = null
+                                        newSessionName = ""
+                                        newSessionRate = ""
+                                        newSessionMult = ""
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
+                                    Text("မပြင်ပါ", color = LuckyDanger, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppOutlinedTextField(
+                                value = newSessionName,
+                                onValueChange = {
+                                    newSessionName = it
+                                    if (it.isBlank() && editingSessionId == null) {
+                                        editingSessionOldName = null
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.round_label)) },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .soundOnInputFocus()
+                                    .testTag("session_name_input"),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+
+                            AnimatedVisibility(visible = showSessionSaveBtn) {
+                                CompactPrimaryButton(
+                                    text = if (editingSessionId != null) "ပြင်မည်" else stringResource(R.string.action_save),
+                                    onClick = {
+                                        val cleanName = newSessionName.trim()
+                                        if (cleanName.isNotEmpty()) {
+                                            val rateVal = MainViewModel.parseDoubleOrZero(newSessionRate)
+                                            val multVal = MainViewModel.parseDoubleOrZero(newSessionMult)
+                                            val targetId = editingSessionId
+                                            val saved = if (targetId != null) {
+                                                viewModel.updateSessionById(
+                                                    sessionId = targetId,
+                                                    updatedSession = Session(name = cleanName, rate = rateVal, mult = multVal, id = targetId)
+                                                )
+                                            } else {
+                                                viewModel.addSession(
+                                                    name = cleanName,
+                                                    rate = rateVal,
+                                                    mult = multVal
+                                                )
+                                            }
+                                            if (saved) {
+                                                editingSessionId = null
+                                                editingSessionOldName = null
+                                                newSessionName = ""
+                                                newSessionRate = ""
+                                                newSessionMult = ""
+                                            }
+                                        }
+                                    },
+                                    horizontalPadding = 16.dp,
+                                    cornerRadius = 10.dp,
+                                    modifier = Modifier.testTag("session_save_btn")
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppOutlinedTextField(
+                                value = newSessionRate,
+                                onValueChange = { newSessionRate = it },
+                                label = { Text(stringResource(R.string.label_commission_percent)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .soundOnInputFocus()
+                                    .testTag("session_rate_input"),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            AppOutlinedTextField(
+                                value = newSessionMult,
+                                onValueChange = { newSessionMult = it },
+                                label = { Text(stringResource(R.string.label_multiplier)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .soundOnInputFocus()
+                                    .testTag("session_mult_input"),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = LuckyBorder)
+
+                    // 2. PROPORTIONAL 4-COLUMN TABLE AT THE BOTTOM (Oldest-First)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -962,7 +1100,7 @@ fun SettingsScreen(
                             )
                         }
 
-                        if (sessions.isEmpty()) {
+                        if (oldestFirstSessions.isEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -986,161 +1124,83 @@ fun SettingsScreen(
                                     .heightIn(max = 220.dp)
                                     .verticalScroll(rememberScrollState())
                             ) {
-                                sessions.forEachIndexed { index, s ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .defaultMinSize(minHeight = 48.dp)
-                                            .background(if (index % 2 == 0) LuckyCard else LuckyCardDark)
-                                            .combinedClickable(
-                                                onClick = {
-                                                    // Tapping normally on a row does not trigger accidental deletions
-                                                },
-                                                onLongClick = {
-                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    sessionMenuTargetId = s.id
-                                                }
+                                oldestFirstSessions.forEachIndexed { index, s ->
+                                    key(s.id) {
+                                        val isCurrentEditing = editingSessionId == s.id
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .defaultMinSize(minHeight = 48.dp)
+                                                .background(
+                                                    when {
+                                                        isCurrentEditing -> LuckyHeader.copy(alpha = 0.15f)
+                                                        index % 2 == 0 -> LuckyCard
+                                                        else -> LuckyCardDark
+                                                    }
+                                                )
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        editingSessionId = s.id
+                                                        editingSessionOldName = s.name
+                                                        newSessionName = s.name
+                                                        newSessionRate = fmt(s.rate)
+                                                        newSessionMult = fmt(s.mult)
+                                                    },
+                                                    onLongClick = {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        sessionMenuTargetId = s.id
+                                                    }
+                                                )
+                                                .padding(horizontal = 10.dp, vertical = 9.dp)
+                                                .testTag("session_row_${s.id}"),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "${index + 1}",
+                                                color = LuckyTextPrimary,
+                                                fontSize = 14.sp,
+                                                lineHeight = 1.5.em,
+                                                fontWeight = FontWeight.Bold,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.weight(0.6f)
                                             )
-                                            .padding(horizontal = 10.dp, vertical = 9.dp)
-                                            .testTag("session_row_${s.id}"),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "${index + 1}",
-                                            color = LuckyTextPrimary,
-                                            fontSize = 14.sp,
-                                            lineHeight = 1.5.em,
-                                            fontWeight = FontWeight.Bold,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.weight(0.6f)
-                                        )
-                                        Text(
-                                            text = s.name,
-                                            color = LuckyTextPrimary,
-                                            fontSize = 14.sp,
-                                            lineHeight = 1.5.em,
-                                            fontWeight = FontWeight.Bold,
-                                            textAlign = TextAlign.Start,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1.4f)
-                                        )
-                                        Text(
-                                            text = "${fmt(s.rate)}%",
-                                            color = LuckyTextPrimary,
-                                            fontSize = 14.sp,
-                                            lineHeight = 1.5.em,
-                                            fontWeight = FontWeight.SemiBold,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.weight(1.1f)
-                                        )
-                                        Text(
-                                            text = fmt(s.mult),
-                                            color = LuckyHeader,
-                                            fontSize = 14.sp,
-                                            lineHeight = 1.5.em,
-                                            fontWeight = FontWeight.Bold,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.weight(0.9f)
-                                        )
-                                    }
-                                    if (index < sessions.lastIndex) {
-                                        HorizontalDivider(color = LuckyBorder.copy(alpha = 0.6f), thickness = 0.5.dp)
+                                            Text(
+                                                text = s.name,
+                                                color = if (isCurrentEditing) LuckyHeader else LuckyTextPrimary,
+                                                fontSize = 14.sp,
+                                                lineHeight = 1.5.em,
+                                                fontWeight = FontWeight.Bold,
+                                                textAlign = TextAlign.Start,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1.4f)
+                                            )
+                                            Text(
+                                                text = "${fmt(s.rate)}%",
+                                                color = LuckyTextPrimary,
+                                                fontSize = 14.sp,
+                                                lineHeight = 1.5.em,
+                                                fontWeight = FontWeight.SemiBold,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.weight(1.1f)
+                                            )
+                                            Text(
+                                                text = fmt(s.mult),
+                                                color = LuckyHeader,
+                                                fontSize = 14.sp,
+                                                lineHeight = 1.5.em,
+                                                fontWeight = FontWeight.Bold,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.weight(0.9f)
+                                            )
+                                        }
+                                        if (index < oldestFirstSessions.lastIndex) {
+                                            HorizontalDivider(color = LuckyBorder.copy(alpha = 0.6f), thickness = 0.5.dp)
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-
-                    HorizontalDivider(color = LuckyBorder)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AppOutlinedTextField(
-                            value = newSessionName,
-                            onValueChange = {
-                                newSessionName = it
-                                if (it.isBlank()) {
-                                    editingSessionOldName = null
-                                }
-                            },
-                            label = { Text(stringResource(R.string.round_label)) },
-                            singleLine = true,
-                            modifier = Modifier
-                                .weight(1f)
-                                .soundOnInputFocus()
-                                .testTag("session_name_input"),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-
-                        AnimatedVisibility(visible = showSessionSaveBtn) {
-                            CompactPrimaryButton(
-                                text = stringResource(R.string.action_save),
-                                onClick = {
-                                    val cleanName = newSessionName.trim()
-                                    if (cleanName.isNotEmpty()) {
-                                        val rateVal = MainViewModel.parseDoubleOrZero(newSessionRate)
-                                        val multVal = MainViewModel.parseDoubleOrZero(newSessionMult)
-                                        val oldName = editingSessionOldName
-                                        val saved = if (oldName != null) {
-                                            viewModel.updateSession(
-                                                oldName = oldName,
-                                                updatedSession = Session(name = cleanName, rate = rateVal, mult = multVal)
-                                            )
-                                        } else {
-                                            viewModel.addSession(
-                                                name = cleanName,
-                                                rate = rateVal,
-                                                mult = multVal
-                                            )
-                                        }
-                                        if (saved) {
-                                            editingSessionOldName = null
-                                            newSessionName = ""
-                                            newSessionRate = ""
-                                            newSessionMult = ""
-                                        }
-                                    }
-                                },
-                                horizontalPadding = 16.dp,
-                                cornerRadius = 10.dp,
-                                modifier = Modifier.testTag("session_save_btn")
-                            )
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AppOutlinedTextField(
-                            value = newSessionRate,
-                            onValueChange = { newSessionRate = it },
-                            label = { Text(stringResource(R.string.label_commission_percent)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier
-                                .weight(1f)
-                                .soundOnInputFocus()
-                                .testTag("session_rate_input"),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        AppOutlinedTextField(
-                            value = newSessionMult,
-                            onValueChange = { newSessionMult = it },
-                            label = { Text(stringResource(R.string.label_multiplier)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier
-                                .weight(1f)
-                                .soundOnInputFocus()
-                                .testTag("session_mult_input"),
-                            shape = RoundedCornerShape(8.dp)
-                        )
                     }
 
                     Row(
@@ -1151,6 +1211,7 @@ fun SettingsScreen(
                         CompactTextButton(
                             text = stringResource(R.string.action_close),
                             onClick = {
+                                editingSessionId = null
                                 editingSessionOldName = null
                                 activeDialog = null
                             },
