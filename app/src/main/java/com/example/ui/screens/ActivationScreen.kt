@@ -119,7 +119,12 @@ fun ActivationScreen(
         focusManager.clearFocus()
         val normalized = LicenseManager.normalizeKeyInput(rawKeyInput)
         if (normalized.length < 12) {
-            errorMessage = "အသက်သွင်းကုဒ် ၁၂ လုံး အပြည့်ထည့်သွင်းပါ (XXXX-XXXX-XXXX)"
+            errorMessage = "သော့ကုဒ် မှားယွင်းနေပါသည်၊ မှန်ကန်သော သော့ကုဒ် ထည့်သွင်းပါ"
+            Toast.makeText(
+                context,
+                "သော့ကုဒ် မှားယွင်းနေပါသည်၊ မှန်ကန်သော သော့ကုဒ် ထည့်သွင်းပါ",
+                Toast.LENGTH_SHORT
+            ).show()
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             return
         }
@@ -139,7 +144,12 @@ fun ActivationScreen(
                 onActivated()
             } else {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                errorMessage = "အသက်သွင်းကုဒ် မှားယွင်းနေပါသည်။ ပြန်လည်စစ်ဆေးပါ။"
+                errorMessage = "သော့ကုဒ် မှားယွင်းနေပါသည်၊ မှန်ကန်သော သော့ကုဒ် ထည့်သွင်းပါ"
+                Toast.makeText(
+                    context,
+                    "သော့ကုဒ် မှားယွင်းနေပါသည်၊ မှန်ကန်သော သော့ကုဒ် ထည့်သွင်းပါ",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
@@ -300,7 +310,7 @@ fun ActivationScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "ကူးယူမည်",
+                                        text = "📋 ကူးမည်",
                                         fontSize = 12.sp,
                                         lineHeight = 1.5.em,
                                         fontWeight = FontWeight.Bold
@@ -370,7 +380,7 @@ fun ActivationScreen(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "ကူးထည့်မည်",
+                                    text = "📋 PASTE",
                                     color = LuckyHeader,
                                     fontSize = 12.sp,
                                     lineHeight = 1.5.em,
@@ -473,7 +483,7 @@ fun ActivationScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "အသက်သွင်းမည်",
+                                text = "စစ်ဆေးပြီး စတင်အသုံးပြုမည်",
                                 fontSize = 15.sp,
                                 lineHeight = 1.5.em,
                                 fontWeight = FontWeight.Bold

@@ -19,6 +19,7 @@ object SecurityManager {
 
     private const val PREFS_FILE_NAME = "lucky2d_secure_license_prefs"
     private const val FALLBACK_PREFS_FILE_NAME = "lucky2d_fallback_license_prefs"
+    const val SHARED_SECRET_2D = "LUCKY2D_SHWEKHINMYAY_OFFLINE_SECRET_SALT_2026"
     const val SHARED_SECRET = "Lucky3D_Super_Secret_Key_2026!#"
 
     /**
@@ -26,15 +27,26 @@ object SecurityManager {
      */
     fun getSharedSecret(): String = SHARED_SECRET
 
+    fun getSharedSecret2D(): String = SHARED_SECRET_2D
+
     /**
      * Computes uppercase hexadecimal HMAC-SHA256(payload, secret).
      */
-    fun computeHmacSha256Hex(payload: String, secret: String = getSharedSecret()): String {
+    fun computeHmacSha256Hex(payload: String, secret: String = SHARED_SECRET_2D): String {
         val mac = Mac.getInstance("HmacSHA256")
         val keySpec = SecretKeySpec(secret.toByteArray(StandardCharsets.UTF_8), "HmacSHA256")
         mac.init(keySpec)
         val rawHmac = mac.doFinal(payload.toByteArray(StandardCharsets.UTF_8))
         return rawHmac.joinToString("") { "%02X".format(Locale.US, it) }
+    }
+
+    /**
+     * Computes uppercase hexadecimal SHA-256(payload).
+     */
+    fun computeSha256Hex(payload: String): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        val digest = md.digest(payload.toByteArray(StandardCharsets.UTF_8))
+        return digest.joinToString("") { "%02X".format(Locale.US, it) }
     }
 
     /**

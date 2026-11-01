@@ -269,6 +269,17 @@ class ExampleUnitTest {
             "Lucky3D_Super_Secret_Key_2026!#",
             com.example.security.SecurityManager.getSharedSecret()
         )
+        assertEquals(
+            "LUCKY2D_SHWEKHINMYAY_OFFLINE_SECRET_SALT_2026",
+            com.example.security.SecurityManager.getSharedSecret2D()
+        )
+        assertEquals(
+            "LUCKY2D_SHWEKHINMYAY_OFFLINE_SECRET_SALT_2026",
+            com.example.security.DeviceSecurityUtil2D.SECRET_SALT
+        )
+
+        // Verification that preview bypass is strictly reverted to false
+        assertFalse(com.example.security.LicenseManager.defaultBypassActivationForPreview)
 
         val sampleDeviceId = "8f4a2c91e0b37d12"
         val key1 = com.example.security.LicenseManager.generateExpectedKey(sampleDeviceId)
@@ -276,9 +287,18 @@ class ExampleUnitTest {
         assertEquals(key1, key2)
         assertTrue(Regex("^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$").matches(key1))
 
+        val utilKey = com.example.security.DeviceSecurityUtil2D.generateExpectedKey(sampleDeviceId)
+        assertEquals(key1, utilKey)
+
         val sig1 = com.example.security.LicenseManager.computeActivationSignature(sampleDeviceId)
         val sig2 = com.example.security.LicenseManager.computeActivationSignature("other_device_id")
         assertFalse(com.example.security.SecurityManager.constantTimeEquals(sig1, sig2))
+
+        // Key normalization handles raw, formatted, spaced, and lowercase
+        val raw12 = key1.replace("-", "")
+        assertEquals(raw12, com.example.security.LicenseManager.normalizeKeyInput(key1))
+        assertEquals(raw12, com.example.security.LicenseManager.normalizeKeyInput(raw12.lowercase()))
+        assertEquals(raw12, com.example.security.LicenseManager.normalizeKeyInput("  $key1  "))
     }
 
     @Test

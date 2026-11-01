@@ -18,6 +18,7 @@ import java.util.UUID
 object LicenseManager {
 
     private const val KEY_IS_ACTIVATED = "is_activated"
+    private const val KEY_IS_APP_ACTIVATED_2D = "is_app_activated_2d"
     private const val KEY_ACTIVATED_DEVICE_ID = "activated_device_id"
     private const val KEY_ACTIVATION_SIGNATURE = "activation_signature"
     private const val KEY_ACTIVATED_PRODUCT_KEY = "activated_product_key"
@@ -27,7 +28,7 @@ object LicenseManager {
     var enforceActivationInTests: Boolean = false
 
     @Volatile
-    var defaultBypassActivationForPreview: Boolean = true
+    var defaultBypassActivationForPreview: Boolean = false
 
     /**
      * Fetches the persistent device identifier (`Settings.Secure.ANDROID_ID`),
@@ -71,7 +72,7 @@ object LicenseManager {
      */
     fun generateExpectedKey(
         deviceId: String,
-        secret: String = SecurityManager.SHARED_SECRET
+        secret: String = SecurityManager.SHARED_SECRET_2D
     ): String {
         val normalizedDeviceId = normalizeDeviceId(deviceId)
         val fullHmacHex = SecurityManager.computeHmacSha256Hex(normalizedDeviceId, secret)
@@ -83,9 +84,12 @@ object LicenseManager {
      * Computes the tamper-proof device activation signature:
      * `HMAC-SHA256(Device_ID + "_ACTIVATED", SHARED_SECRET)`
      */
-    fun computeActivationSignature(deviceId: String): String {
+    fun computeActivationSignature(
+        deviceId: String,
+        secret: String = SecurityManager.SHARED_SECRET_2D
+    ): String {
         val normalizedDeviceId = normalizeDeviceId(deviceId)
-        return SecurityManager.computeHmacSha256Hex("${normalizedDeviceId}_ACTIVATED")
+        return SecurityManager.computeHmacSha256Hex("${normalizedDeviceId}_ACTIVATED", secret)
     }
 
     /**
@@ -99,25 +103,37 @@ object LicenseManager {
             return false
         }
 
-        val expectedFormattedUpper = generateExpectedKey(currentDeviceId.uppercase(Locale.US))
-        val normalizedExpectedUpper = normalizeKeyInput(expectedFormattedUpper)
+        val devUpper = currentDeviceId.uppercase(Locale.US)
+        val devLower = currentDeviceId.lowercase(Locale.US)
 
-        // Also support case where admin generator hashed lowercase Device ID
-        val expectedFormattedLower = formatKeyWithDashes(
-            SecurityManager.computeHmacSha256Hex(currentDeviceId.lowercase(Locale.US)).take(12)
-        )
-        val normalizedExpectedLower = normalizeKeyInput(expectedFormattedLower)
+        val candidates = mutableListOf<String>()
 
-        val isValid = SecurityManager.constantTimeEquals(normalizedInput, normalizedExpectedUpper) ||
-            SecurityManager.constantTimeEquals(normalizedInput, normalizedExpectedLower)
+        // 1. HMAC-SHA256 with 2D Secret Salt (Upper & Lower)
+        candidates.add(normalizeKeyInput(SecurityManager.computeHmacSha256Hex(devUpper, SecurityManager.SHARED_SECRET_2D).take(12)))
+        candidates.add(normalizeKeyInput(SecurityManager.computeHmacSha256Hex(devLower, SecurityManager.SHARED_SECRET_2D).take(12)))
+
+        // 2. SHA-256(deviceId + salt) & SHA-256(salt + deviceId)
+        candidates.add(normalizeKeyInput(SecurityManager.computeSha256Hex(devUpper + SecurityManager.SHARED_SECRET_2D).take(12)))
+        candidates.add(normalizeKeyInput(SecurityManager.computeSha256Hex(devLower + SecurityManager.SHARED_SECRET_2D).take(12)))
+        candidates.add(normalizeKeyInput(SecurityManager.computeSha256Hex(SecurityManager.SHARED_SECRET_2D + devUpper).take(12)))
+        candidates.add(normalizeKeyInput(SecurityManager.computeSha256Hex(SecurityManager.SHARED_SECRET_2D + devLower).take(12)))
+
+        // 3. Legacy Secret compatibility
+        candidates.add(normalizeKeyInput(SecurityManager.computeHmacSha256Hex(devUpper, SecurityManager.SHARED_SECRET).take(12)))
+        candidates.add(normalizeKeyInput(SecurityManager.computeHmacSha256Hex(devLower, SecurityManager.SHARED_SECRET).take(12)))
+
+        val isValid = candidates.any { candidate ->
+            SecurityManager.constantTimeEquals(normalizedInput, candidate)
+        }
 
         if (isValid) {
-            val signature = computeActivationSignature(currentDeviceId)
+            val signature = computeActivationSignature(currentDeviceId, SecurityManager.SHARED_SECRET_2D)
             SecurityManager.getEncryptedPrefs(context).edit()
                 .putBoolean(KEY_IS_ACTIVATED, true)
+                .putBoolean(KEY_IS_APP_ACTIVATED_2D, true)
                 .putString(KEY_ACTIVATED_DEVICE_ID, currentDeviceId)
                 .putString(KEY_ACTIVATION_SIGNATURE, signature)
-                .putString(KEY_ACTIVATED_PRODUCT_KEY, expectedFormattedUpper)
+                .putString(KEY_ACTIVATED_PRODUCT_KEY, formatKeyWithDashes(normalizedInput))
                 .apply()
         }
         return isValid
@@ -136,7 +152,8 @@ object LicenseManager {
         }
 
         val prefs = SecurityManager.getEncryptedPrefs(context)
-        val isActivatedFlag = prefs.getBoolean(KEY_IS_ACTIVATED, false)
+        val isActivatedFlag = prefs.getBoolean(KEY_IS_ACTIVATED, false) ||
+            prefs.getBoolean(KEY_IS_APP_ACTIVATED_2D, false)
         if (!isActivatedFlag) return false
 
         val storedDeviceId = prefs.getString(KEY_ACTIVATED_DEVICE_ID, null) ?: return false
@@ -151,13 +168,17 @@ object LicenseManager {
             return false
         }
 
-        val expectedSignature = computeActivationSignature(currentDeviceId)
-        return SecurityManager.constantTimeEquals(storedSignature, expectedSignature)
+        val expectedSignature2D = computeActivationSignature(currentDeviceId, SecurityManager.SHARED_SECRET_2D)
+        val expectedSignatureLegacy = computeActivationSignature(currentDeviceId, SecurityManager.SHARED_SECRET)
+
+        return SecurityManager.constantTimeEquals(storedSignature, expectedSignature2D) ||
+            SecurityManager.constantTimeEquals(storedSignature, expectedSignatureLegacy)
     }
 
     fun clearLicenseForTesting(context: Context) {
         SecurityManager.getEncryptedPrefs(context).edit()
             .remove(KEY_IS_ACTIVATED)
+            .remove(KEY_IS_APP_ACTIVATED_2D)
             .remove(KEY_ACTIVATED_DEVICE_ID)
             .remove(KEY_ACTIVATION_SIGNATURE)
             .remove(KEY_ACTIVATED_PRODUCT_KEY)
