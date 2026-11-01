@@ -49,6 +49,13 @@ data class NumberRowItem2D(
     val totalAmount: Long
 )
 
+data class NumberLedgerState2D(
+    val number: String,
+    val totalSales: Long,
+    val totalPassed: Long,
+    val netKept: Long = totalSales - totalPassed // Signed: Supports negative numbers!
+)
+
 data class NumberAgentBreakdownItem(
     val agentId: Int,
     val agentName: String,
@@ -296,33 +303,98 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val full2DNumbersList: StateFlow<List<NumberRowItem2D>> = combine(
         _selectedDate,
         _selectedSession,
-        _vouchers
-    ) { date, session, vouchersList ->
+        _vouchers,
+        _layoffs
+    ) { date, session, vouchersList, layoffsList ->
         val cleanDate = date.trim().toAsciiDigits()
         val sessionVouchers = vouchersList.filter {
             it.date.toAsciiDigits() == cleanDate && it.session == session
         }
-        val aggregatedMap = (0..99).associate { i ->
+        val sessionLayoffs = layoffsList.filter {
+            it.date.toAsciiDigits() == cleanDate && it.session == session
+        }
+        val salesMap = (0..99).associate { i ->
+            String.format(Locale.US, "%02d", i) to 0L
+        }.toMutableMap()
+        val passedMap = (0..99).associate { i ->
             String.format(Locale.US, "%02d", i) to 0L
         }.toMutableMap()
 
         sessionVouchers.forEach { voucher ->
             voucher.items.forEach { betItem ->
                 val num = betItem.n.toAsciiDigits().padStart(2, '0').takeLast(2)
-                if (aggregatedMap.containsKey(num)) {
-                    aggregatedMap[num] = (aggregatedMap[num] ?: 0L) + betItem.a
+                if (salesMap.containsKey(num)) {
+                    salesMap[num] = (salesMap[num] ?: 0L) + betItem.a
+                }
+            }
+        }
+        sessionLayoffs.forEach { layoff ->
+            layoff.items.forEach { betItem ->
+                val num = betItem.n.toAsciiDigits().padStart(2, '0').takeLast(2)
+                if (passedMap.containsKey(num)) {
+                    passedMap[num] = (passedMap[num] ?: 0L) + betItem.a
                 }
             }
         }
 
-        aggregatedMap.entries.map { entry ->
-            NumberRowItem2D(number = entry.key, totalAmount = entry.value)
+        salesMap.entries.map { entry ->
+            val num = entry.key
+            val sales = entry.value
+            val passed = passedMap[num] ?: 0L
+            val netKept = sales - passed // Signed: supports negative balance
+            NumberRowItem2D(number = num, totalAmount = netKept)
         }
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
         (0..99).map { NumberRowItem2D(String.format(Locale.US, "%02d", it), 0L) }
     )
+
+    fun getNumberLedgerStateFlow(
+        date: String = _selectedDate.value,
+        sessionName: String = _selectedSession.value
+    ): Flow<Map<String, NumberLedgerState2D>> {
+        return combine(
+            _vouchers,
+            _layoffs
+        ) { vouchersList, layoffsList ->
+            val cleanDate = date.trim().toAsciiDigits()
+            val sessionVouchers = vouchersList.filter {
+                it.date.toAsciiDigits() == cleanDate && it.session == sessionName
+            }
+            val sessionLayoffs = layoffsList.filter {
+                it.date.toAsciiDigits() == cleanDate && it.session == sessionName
+            }
+
+            val salesMap = mutableMapOf<String, Long>()
+            sessionVouchers.forEach { v ->
+                v.items.forEach { itm ->
+                    val num = itm.n.toAsciiDigits().padStart(2, '0').takeLast(2)
+                    salesMap[num] = (salesMap[num] ?: 0L) + itm.a
+                }
+            }
+
+            val passedMap = mutableMapOf<String, Long>()
+            sessionLayoffs.forEach { l ->
+                l.items.forEach { itm ->
+                    val num = itm.n.toAsciiDigits().padStart(2, '0').takeLast(2)
+                    passedMap[num] = (passedMap[num] ?: 0L) + itm.a
+                }
+            }
+
+            val all2DKeys = (0..99).map { String.format(Locale.US, "%02d", it) }
+            all2DKeys.associateWith { num ->
+                val sales = salesMap[num] ?: 0L
+                val passed = passedMap[num] ?: 0L
+                NumberLedgerState2D(
+                    number = num,
+                    totalSales = sales,
+                    totalPassed = passed,
+                    netKept = sales - passed
+                )
+            }
+        }
+    }
 
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
@@ -459,7 +531,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         manuallyEditedRecordIds.clear()
         customRoundsByDate.clear()
         showConfirmBetDialog.value = false
-        val loadedSessions = repository.loadSessions()
+        val activeDate = _selectedDate.value.toAsciiDigits()
+        val loadedSessions = repository.loadSessionsForDate(activeDate)
         _sessions.value = loadedSessions
 
         repository.loadAgents()
@@ -470,7 +543,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _settled.value = repository.loadSettled()
         _dailySettlements.value = repository.loadAllDailySettlements()
 
-        val histRoundsForDate = getHistoricalRoundsForDate(_selectedDate.value)
+        val histRoundsForDate = getHistoricalRoundsForDate(activeDate)
         if (loadedSessions.isNotEmpty()) {
             if (_selectedSession.value.isEmpty() ||
                 (!loadedSessions.any { it.name == _selectedSession.value } && _selectedSession.value !in histRoundsForDate)
@@ -536,14 +609,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (cleanDate.isEmpty()) return
         val changed = _selectedDate.value != cleanDate
         _selectedDate.value = cleanDate
+
+        val dateSessions = repository.loadSessionsForDate(cleanDate)
+        _sessions.value = dateSessions
         val histRounds = getHistoricalRoundsForDate(cleanDate)
-        val configuredNames = _sessions.value.map { it.name }
-        val currentSess = _selectedSession.value
-        if (currentSess.isBlank()) {
-            val nextRound = histRounds.firstOrNull() ?: configuredNames.firstOrNull() ?: ""
-            _selectedSession.value = nextRound
-        } else if (histRounds.isNotEmpty() && currentSess !in histRounds) {
-            _selectedSession.value = histRounds.first()
+
+        if (dateSessions.isNotEmpty()) {
+            if (_selectedSession.value.isEmpty() || !dateSessions.any { it.name == _selectedSession.value }) {
+                _selectedSession.value = dateSessions.first().name
+            }
+        } else if (histRounds.isNotEmpty()) {
+            if (_selectedSession.value.isEmpty() || _selectedSession.value !in histRounds) {
+                _selectedSession.value = histRounds.first()
+            }
+        } else {
+            _selectedSession.value = ""
         }
         refreshActiveAgentsForCurrentDraw(resetDraftOnSessionChange = changed)
         refreshAvailableRounds()
@@ -984,18 +1064,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Aggregations for Numbers Screen and Brake Screen
     fun getFilteredVouchers(date: String = _selectedDate.value, session: String = _selectedSession.value): List<Voucher> {
-        if (session.isBlank()) return emptyList()
         val cleanDate = date.trim().toAsciiDigits()
+        val cleanSession = session.trim()
+        if (cleanDate.isBlank() || cleanSession.isBlank()) return emptyList()
         return _vouchers.value.filter {
-            it.date.toAsciiDigits() == cleanDate && it.session == session
+            it.date.toAsciiDigits() == cleanDate && it.session == cleanSession
         }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
     }
 
     fun getBetsForVoucher(voucherNo: Int): Flow<List<BetItem>> = flow {
         val cleanDate = _selectedDate.value.toAsciiDigits()
-        val sess = _selectedSession.value
+        val sess = _selectedSession.value.trim()
+        if (cleanDate.isBlank() || sess.isBlank()) {
+            emit(emptyList())
+            return@flow
+        }
         val v = _vouchers.value.firstOrNull { it.date.toAsciiDigits() == cleanDate && it.session == sess && it.no == voucherNo }
-            ?: _vouchers.value.firstOrNull { it.no == voucherNo }
         emit(v?.items ?: emptyList())
     }
 
@@ -1005,10 +1089,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getFilteredLayoffs(date: String = _selectedDate.value, session: String = _selectedSession.value): List<LayoffRecord> {
-        if (session.isBlank()) return emptyList()
         val cleanDate = date.trim().toAsciiDigits()
+        val cleanSession = session.trim()
+        if (cleanDate.isBlank() || cleanSession.isBlank()) return emptyList()
         return _layoffs.value.filter {
-            it.date.toAsciiDigits() == cleanDate && it.session == session
+            it.date.toAsciiDigits() == cleanDate && it.session == cleanSession
         }.sortedWith(compareBy<LayoffRecord> { it.recordNo }.thenBy { it.id })
     }
 
@@ -1047,7 +1132,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val total = betMap[numStr] ?: 0L
             val count = countMap[numStr] ?: 0
             val layoff = layoffMap[numStr] ?: 0L
-            val net = (total - layoff).coerceAtLeast(0L)
+            val net = total - layoff // Signed: Supports negative numbers when passed bets exceed sales
             if (includeZeroBets || total > 0 || layoff > 0) {
                 allNumbers.add(NumberSummary(numStr, count, total, layoff, net))
             }
@@ -1069,7 +1154,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getFull2DNumbersList(): List<NumberRowItem2D> {
         return getAll100Numbers().map {
-            NumberRowItem2D(number = it.n, totalAmount = it.totalBet)
+            NumberRowItem2D(number = it.n, totalAmount = it.netAmount)
         }
     }
 
@@ -1328,6 +1413,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
+    fun updatePassedBetItem2D(
+        recordId: Long,
+        betId: Long = 0L,
+        targetNumber: String,
+        newAmount: Long
+    ) {
+        val rec = _layoffs.value.firstOrNull { it.id == recordId } ?: return
+        val targetAscii = targetNumber.trim().toAsciiDigits()
+        val itemIndex = rec.items.indexOfFirst { it.n.toAsciiDigits() == targetAscii }
+        if (itemIndex >= 0) {
+            editLayoffItem(recordId, itemIndex, targetNumber, newAmount)
+        }
+    }
+
     // Settlement
     fun getWinningNumberForCurrentSession(): String {
         if (!hasActiveRound) return ""
@@ -1388,13 +1487,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (clean.length != 2 || !clean.all { it.isDigit() }) return
         val cleanDate = _selectedDate.value.toAsciiDigits()
+        val currentSess = _selectedSession.value
         val filtered = _wins.value.filterNot {
-            it.date.toAsciiDigits() == cleanDate && it.session == _selectedSession.value
+            it.date.toAsciiDigits() == cleanDate && it.session == currentSess
         }
-        val updated = listOf(WinRecord(cleanDate, _selectedSession.value, clean)) + filtered
+        val updated = listOf(WinRecord(cleanDate, currentSess, clean)) + filtered
         _wins.value = updated
         _activeWinningNumberFor2DSummary.value = clean
         repository.saveWins(updated)
+
+        // Lock winning number in Session2D
+        repository.session2DDao.updateWinningNumberByDateAndNameSync(cleanDate, currentSess, clean, closed = true)
+        _sessions.value = _sessions.value.map {
+            if (it.name == currentSess) it.copy(winningNumber = clean, isClosed = true) else it
+        }
+
         refreshAvailableRounds()
         soundManager.playSave()
         showToast("ထွက်ဂဏန်း ($clean) သိမ်းဆည်းပြီးပါပြီ")
@@ -1411,6 +1518,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _wins.value = updated
         _activeWinningNumberFor2DSummary.value = null
         repository.saveWins(updated)
+
+        repository.session2DDao.updateWinningNumberByDateAndNameSync(currentDate, currentSess, null, closed = false)
+        _sessions.value = _sessions.value.map {
+            if (it.name == currentSess) it.copy(winningNumber = null, isClosed = false) else it
+        }
     }
 
     fun updateWinRecord(oldRecord: WinRecord, newRecord: WinRecord) {
@@ -1474,9 +1586,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val numStr = "%02d".format(Locale.US, i)
             val tot = totalPerNum[numStr] ?: 0L
             val lay = layoffPerNum[numStr] ?: 0L
-            val netHeld = (tot - lay).coerceAtLeast(0L)
+            val netHeld = tot - lay // Signed: Never clamped to 0
             retainedPerNum[numStr] = when {
-                isExplicitZeroBrake -> 0L
+                isExplicitZeroBrake -> if (netHeld < 0L) netHeld else 0L
                 activeBrakeLimit > 0L -> minOf(netHeld, activeBrakeLimit)
                 else -> netHeld
             }
@@ -1520,10 +1632,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val tot = totalPerNum[item.n] ?: 0L
                     if (tot > 0L) {
                         val ret = retainedPerNum[item.n] ?: 0L
-                        val scaled = item.a.toDouble() * (ret.toDouble() / tot.toDouble())
-                        agentCommissionBase += scaled
+                        val retPositive = ret.coerceAtLeast(0L)
+                        val scaledComm = item.a.toDouble() * (retPositive.toDouble() / tot.toDouble())
+                        agentCommissionBase += scaledComm
                         if (winningNum.isNotEmpty() && item.n == winningNum) {
-                            agentWinRetainedBase += scaled
+                            val scaledWin = item.a.toDouble() * (ret.toDouble() / tot.toDouble())
+                            agentWinRetainedBase += scaledWin
                         }
                     }
                 }
@@ -1535,16 +1649,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val commLong = Math.round(totalCommission)
-        val retainedNet = (totalRetained - commLong).coerceAtLeast(0L)
+        val retainedNet = totalRetained - commLong
 
         val winningRetained = if (winningNum.isNotEmpty()) (retainedPerNum[winningNum] ?: 0L) else 0L
-        val payout = if (totalPayout > 0.0) {
-            Math.round(totalPayout)
-        } else if (defaultMult > 0.0 && winningNum.isNotEmpty()) {
-            Math.round(winningRetained * defaultMult)
+        val payout = if (winningNum.isNotEmpty()) {
+            if (winningRetained < 0L) {
+                // Negative balance on kept bets: house collected external hedging profit!
+                // Net Payout = NetKept(num) * Multiplier (e.g., -3000 * 80 = -240,000)
+                Math.round(winningRetained.toDouble() * defaultMult)
+            } else if (totalPayout != 0.0) {
+                Math.round(totalPayout)
+            } else if (defaultMult > 0.0) {
+                Math.round(winningRetained.toDouble() * defaultMult)
+            } else 0L
         } else 0L
 
-        // Net Profit/Loss = Total Bet Amount - (Total Commission + Total Payout)
+        // Net Profit/Loss = Total Retained Bet Amount - (Total Commission + Total Payout)
         val profitLoss = totalRetained - (commLong + payout)
 
         return SettledCalculation(
@@ -2349,16 +2469,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addSession(name: String, rate: Double = 0.0, mult: Double = 0.0): Boolean {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return false
+        val activeDate = _selectedDate.value.toAsciiDigits()
         if (_sessions.value.any { it.name.equals(trimmed, ignoreCase = true) }) {
             showToast("အကြိမ် အမည် ထပ်နေပါသည်")
             return false
         }
         val wasSessionBlank = _selectedSession.value.isEmpty()
-        val updated = _sessions.value + Session(trimmed, rate, mult)
+        val newSession = Session(trimmed, rate, mult, date = activeDate)
+        val updated = _sessions.value + newSession
         _sessions.value = updated
-        repository.saveSessions(updated)
+        repository.saveSessionsForDate(activeDate, updated)
         if (_selectedSession.value.isEmpty() || !_sessions.value.any { it.name == _selectedSession.value }) {
-            val activeDate = _selectedDate.value
             if (wasSessionBlank) {
                 val unstagedAgents = repository.loadAgentsForDateAndRound(activeDate, "")
                 if (unstagedAgents.isNotEmpty()) {
@@ -2383,28 +2504,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateSessionRecord(targetId: Long?, oldName: String?, updatedSession: Session): Boolean {
         val existing = _sessions.value.firstOrNull { s ->
-            (oldName != null && s.name == oldName) || (targetId != null && targetId > 0L && s.id == targetId)
+            (targetId != null && targetId > 0L && s.id == targetId) || (oldName != null && s.name == oldName)
         } ?: return false
         val trimmedName = updatedSession.name.trim()
         if (trimmedName.isEmpty()) return false
-        if (_sessions.value.any { it != existing && it.name.equals(trimmedName, ignoreCase = true) }) {
+        if (_sessions.value.any { it.id != existing.id && it.name.equals(trimmedName, ignoreCase = true) }) {
             showToast("အကြိမ် အမည် ထပ်နေပါသည်")
             return false
         }
-        val normalized = updatedSession.copy(id = existing.id, name = trimmedName)
-        val updated = _sessions.value.map { if (it == existing || it.id == existing.id) normalized else it }
+        val activeDate = _selectedDate.value.toAsciiDigits()
+        val normalized = updatedSession.copy(id = existing.id, name = trimmedName, date = activeDate)
+        val updated = _sessions.value.map { if (it.id == existing.id) normalized else it }
         _sessions.value = updated
-        repository.updateSessionById(existing.id, normalized) ?: repository.saveSessions(updated)
+        repository.updateSessionById(existing.id, normalized) ?: repository.saveSessionsForDate(activeDate, updated)
 
         if (existing.name != normalized.name) {
             val prevName = existing.name
             val newName = normalized.name
-            repository.renameSessionAcrossDatabase(prevName, newName)
-            _vouchers.value = _vouchers.value.map { if (it.session == prevName) it.copy(session = newName) else it }
-            _wins.value = _wins.value.map { if (it.session == prevName) it.copy(session = newName) else it }
-            _settled.value = _settled.value.map { if (it.session == prevName) it.copy(session = newName) else it }
-            _layoffs.value = _layoffs.value.map { if (it.session == prevName) it.copy(session = newName) else it }
-            _agents.value = _agents.value.map { if (it.roundNumber == prevName) it.copy(roundNumber = newName) else it }
+            repository.renameSessionAcrossDatabase(activeDate, prevName, newName)
+            _vouchers.value = _vouchers.value.map { if (it.date.toAsciiDigits() == activeDate && it.session == prevName) it.copy(session = newName) else it }
+            _wins.value = _wins.value.map { if (it.date.toAsciiDigits() == activeDate && it.session == prevName) it.copy(session = newName) else it }
+            _settled.value = _settled.value.map { if (it.date.toAsciiDigits() == activeDate && it.session == prevName) it.copy(session = newName) else it }
+            _layoffs.value = _layoffs.value.map { if (it.date.toAsciiDigits() == activeDate && it.session == prevName) it.copy(session = newName) else it }
+            _agents.value = _agents.value.map { if (it.date.toAsciiDigits() == activeDate && it.roundNumber == prevName) it.copy(roundNumber = newName) else it }
         }
 
         if (_selectedSession.value == existing.name) {
@@ -2427,17 +2549,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteSessionRecord(targetId: Long?, name: String?): Boolean {
         val target = _sessions.value.firstOrNull { s ->
-            (name != null && s.name == name) || (targetId != null && targetId > 0L && s.id == targetId)
+            (targetId != null && targetId > 0L && s.id == targetId) || (name != null && s.name == name)
         } ?: return false
         return deleteSessionById(target.id)
     }
 
     fun deleteSessionById(sessionId: Long): Boolean {
         val target = _sessions.value.firstOrNull { it.id == sessionId } ?: return false
+        val activeDate = _selectedDate.value.toAsciiDigits()
         val updated = _sessions.value.filter { it.id != sessionId }
         _sessions.value = updated
         customRoundsByDate.values.forEach { it.remove(target.name) }
-        repository.deleteSessionById(sessionId) ?: repository.saveSessions(updated)
+        repository.deleteSessionById(sessionId, activeDate) ?: repository.saveSessionsForDate(activeDate, updated)
         if (updated.isEmpty()) {
             _selectedSession.value = ""
         } else if (_selectedSession.value == target.name) {
@@ -2479,6 +2602,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun resetAllData() {
         repository.resetAllData()
         loadAllData()
+        _selectedSession.value = ""
+        _currentBrakeInput.value = ""
         soundManager.playDelete()
         showToast("အချက်အလက်အားလုံး ပြန်လည်ရှင်းထုတ်ပြီးပါပြီ")
     }

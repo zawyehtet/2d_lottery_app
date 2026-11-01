@@ -83,39 +83,62 @@ fun BrakeScreen(
     val limit = MainViewModel.parseAmountOrZero(currentBrakeInput)
     val activeBrake = (if (currentBrakeInput.isNotBlank()) limit else settings.brakeLimit).coerceAtLeast(0L)
 
+    val isExplicitZeroBrake = currentBrakeInput.trim() == "0"
+
     val summaries = remember(vouchers, layoffs, selectedDate, selectedSession) {
         viewModel.getAggregatedNumbers()
     }
 
     // Amount kept within the configured brake limit (မိမိလက်ခံသော/ဘရိတ်အတွင်း ပေါက်သီးပမာဏ)
-    // When activeBrake == 0, dealer retains zero risk (0).
-    val keptWinningAmount = remember(summaries, formattedWinNum, hasValidWinNum, activeBrake) {
-        if (hasValidWinNum && activeBrake > 0L) {
+    // Dynamic deduction: automatically updates when passed bets in "တင်ကွက်မှတ်တမ်း" are edited or deleted
+    val keptWinningAmount = remember(summaries, formattedWinNum, hasValidWinNum, activeBrake, isExplicitZeroBrake) {
+        if (hasValidWinNum) {
             val winSummary = summaries.firstOrNull { it.n == formattedWinNum }
             if (winSummary != null) {
-                minOf(winSummary.netAmount, activeBrake)
+                if (isExplicitZeroBrake) {
+                    if (winSummary.netAmount < 0L) winSummary.netAmount else 0L
+                } else if (activeBrake > 0L) {
+                    minOf(winSummary.netAmount, activeBrake)
+                } else {
+                    winSummary.netAmount
+                }
             } else 0L
         } else 0L
     }
 
-    // When activeBrake == 0, "လက်ခံကွက်" (Left Column) is completely empty (0 retained risk)
-    val leftRetainedList = remember(summaries, activeBrake) {
-        if (activeBrake > 0L) {
+    // Left Column: "လက်ခံကွက်" reflects net kept bets after deducting passed bets (supports signed/negative balances)
+    val leftRetainedList = remember(summaries, activeBrake, isExplicitZeroBrake) {
+        if (isExplicitZeroBrake) {
+            summaries.mapNotNull { summary ->
+                if (summary.netAmount < 0L) Triple(summary.n, summary.entryCount, summary.netAmount) else null
+            }
+        } else if (activeBrake > 0L) {
             summaries.mapNotNull { summary ->
                 val retained = minOf(summary.netAmount, activeBrake)
-                if (retained > 0L) Triple(summary.n, summary.entryCount, retained) else null
+                if (retained != 0L) Triple(summary.n, summary.entryCount, retained) else null
             }
         } else {
-            emptyList()
+            // When brake limit is not configured, dealer keeps remaining net bets after passed deductions
+            summaries.mapNotNull { summary ->
+                if (summary.netAmount != 0L) Triple(summary.n, summary.entryCount, summary.netAmount) else null
+            }
         }
     }
 
-    // When activeBrake == 0, "တင်ကွက်" (Right Column) receives 100% of all bets
-    val rightLayoffList = remember(summaries, activeBrake) {
-        summaries.mapNotNull { summary ->
-            if (summary.netAmount > activeBrake) {
-                Triple(summary.n, summary.entryCount, summary.netAmount - activeBrake)
-            } else null
+    // Right Column: "တင်ကွက်" receives bets exceeding the active brake limit
+    val rightLayoffList = remember(summaries, activeBrake, isExplicitZeroBrake) {
+        if (isExplicitZeroBrake) {
+            summaries.mapNotNull { summary ->
+                if (summary.netAmount > 0L) Triple(summary.n, summary.entryCount, summary.netAmount) else null
+            }
+        } else if (activeBrake > 0L) {
+            summaries.mapNotNull { summary ->
+                if (summary.netAmount > activeBrake) {
+                    Triple(summary.n, summary.entryCount, summary.netAmount - activeBrake)
+                } else null
+            }
+        } else {
+            emptyList()
         }
     }
 
@@ -130,11 +153,11 @@ fun BrakeScreen(
     val totalRetained = leftRetainedList.sumOf { it.third }
     val totalLayoff = rightLayoffList.sumOf { it.third }
 
-    val ledgerSales = if (activeBrake <= 0L) 0L else liveCalc.totalRetained
-    val ledgerComm = if (activeBrake <= 0L) 0L else liveCalc.commission
-    val ledgerNet = if (activeBrake <= 0L) 0L else liveCalc.retainedNet
-    val ledgerPayout = if (activeBrake <= 0L) 0L else liveCalc.payout
-    val ledgerProfitLoss = if (activeBrake <= 0L) 0L else liveCalc.profitLoss
+    val ledgerSales = if (isExplicitZeroBrake) 0L else liveCalc.totalRetained
+    val ledgerComm = if (isExplicitZeroBrake) 0L else liveCalc.commission
+    val ledgerNet = if (isExplicitZeroBrake) 0L else liveCalc.retainedNet
+    val ledgerPayout = if (isExplicitZeroBrake) 0L else liveCalc.payout
+    val ledgerProfitLoss = if (isExplicitZeroBrake) 0L else liveCalc.profitLoss
 
     val orangeHeaderBg = Color(0xFFF57C00)
 
@@ -457,6 +480,8 @@ fun BrakeScreen(
                                     }
                                 } else {
                                     itemsIndexed(regularLeftRetainedList) { idx, (num, _, amt) ->
+                                        val isNegative = amt < 0L
+                                        val rowItemColor = if (isNegative) Color(0xFFDC2626) else LuckyTextPrimary
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -465,8 +490,22 @@ fun BrakeScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(num, color = LuckyTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, softWrap = false)
-                                            Text(fmt(amt), color = LuckyTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, softWrap = false)
+                                            Text(
+                                                text = num,
+                                                color = rowItemColor,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                            Text(
+                                                text = fmt(amt),
+                                                color = rowItemColor,
+                                                fontWeight = if (isNegative) FontWeight.ExtraBold else FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
                                         }
                                         HorizontalDivider(color = LuckyBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
                                     }
@@ -487,7 +526,8 @@ fun BrakeScreen(
                                     BrakeLedgerLine("စုစုပေါင်း =", fmt(ledgerSales), LuckyTextPrimary)
                                     BrakeLedgerLine("ကော် =", fmt(ledgerComm), LuckyTextPrimary)
                                     BrakeLedgerLine("နှုတ်ပြီး =", fmt(ledgerNet), LuckyTextPrimary)
-                                    BrakeLedgerLine("ပေါက်သီး =", fmt(ledgerPayout), LuckyDanger)
+                                    val payoutColor = if (ledgerPayout < 0L) LuckySuccess else LuckyDanger
+                                    BrakeLedgerLine("ပေါက်သီး =", fmt(ledgerPayout), payoutColor)
                                     val sign = when {
                                         ledgerProfitLoss > 0L -> "+"
                                         ledgerProfitLoss < 0L -> "-"

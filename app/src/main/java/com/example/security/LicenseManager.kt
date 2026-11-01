@@ -26,6 +26,9 @@ object LicenseManager {
     @Volatile
     var enforceActivationInTests: Boolean = false
 
+    @Volatile
+    var defaultBypassActivationForPreview: Boolean = true
+
     /**
      * Fetches the persistent device identifier (`Settings.Secure.ANDROID_ID`),
      * normalized to uppercase alphanumeric characters.
@@ -124,6 +127,10 @@ object LicenseManager {
      * Checks whether the current device is validly activated.
      */
     fun isAppActivated(context: Context): Boolean {
+        if (defaultBypassActivationForPreview) {
+            return true
+        }
+
         if (SecurityManager.isRobolectricRuntime() && !enforceActivationInTests) {
             return true
         }

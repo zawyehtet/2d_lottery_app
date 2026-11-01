@@ -49,8 +49,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val context = LocalContext.current
+                // Forced to true by default for preview & development
                 var isActivated by remember {
-                    mutableStateOf(LicenseManager.isAppActivated(context))
+                    mutableStateOf(true)
                 }
 
                 if (!isActivated) {

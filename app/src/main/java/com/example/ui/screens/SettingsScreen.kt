@@ -241,17 +241,7 @@ fun SettingsScreen(
                 )
             }
 
-            // Additional Settings: Date/Round, Brake Limit, Sound Toggle
-            item {
-                SettingsRowCard(
-                    icon = Icons.Default.CalendarMonth,
-                    iconColor = LuckyHeader,
-                    title = stringResource(R.string.setting_date_round_title),
-                    subtitle = "$selectedDate • ${if (hasRound) selectedSession else noRoundsText}",
-                    testTag = "setting_date_session",
-                    onClick = { activeDialog = "DATE_SESSION" }
-                )
-            }
+            // Additional Settings: Brake Limit, Sound Toggle
 
             item {
                 val effectiveBrake = if (currentBrakeInput.isNotBlank()) {
@@ -338,108 +328,7 @@ fun SettingsScreen(
         }
     }
 
-    // Dialog 1: Date & Round
-    if (activeDialog == "DATE_SESSION") {
-        Dialog(onDismissRequest = { activeDialog = null }) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = LuckyCard)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.dialog_date_round_title),
-                        color = LuckyTextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
 
-                    OutlinedButton(
-                        onClick = {
-                            val cal = Calendar.getInstance()
-                            DatePickerDialog(
-                                context,
-                                { _, y, m, d ->
-                                    val formatted = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d)
-                                    viewModel.setDate(formatted)
-                                },
-                                cal.get(Calendar.YEAR),
-                                cal.get(Calendar.MONTH),
-                                cal.get(Calendar.DAY_OF_MONTH)
-                            ).show()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = LuckyHeader)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("ရက်စွဲ: $selectedDate", color = LuckyTextPrimary, fontWeight = FontWeight.Bold)
-                    }
-
-                    Text(
-                        text = stringResource(R.string.dialog_select_round_subtitle),
-                        color = LuckyTextMuted,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    if (sessions.isEmpty()) {
-                        EmptyStateView(
-                            message = noRoundsText,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    } else {
-                        sessions.forEach { s ->
-                            val isSelected = s.name == selectedSession
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) LuckyHeader.copy(alpha = 0.12f) else LuckyBg)
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (isSelected) LuckyHeader else LuckyBorder,
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable { viewModel.setSession(s.name) }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = s.name,
-                                    color = if (isSelected) LuckyHeader else LuckyTextPrimary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                if (isSelected) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = LuckyHeader, modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Button(
-                            onClick = { activeDialog = null },
-                            colors = ButtonDefaults.buttonColors(containerColor = LuckyHeader),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(stringResource(R.string.action_close), color = Color.White, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     // Dialog 2: Winning Numbers ("ထွက်ဂဏန်း" — REF: IMAGE 20)
     if (activeDialog == "WINNING_NUMBERS") {
@@ -1228,12 +1117,8 @@ fun SettingsScreen(
     }
 
     // Long-press Action Dialog for a Session Row ("ပြင်မည်" / "ဖျက်မည်")
-    val sessionMenuTarget = remember(sessions, sessionMenuTargetId, sessionMenuTargetName) {
-        if (sessionMenuTargetName != null) {
-            sessions.firstOrNull { it.name == sessionMenuTargetName } ?: sessions.firstOrNull { it.id == sessionMenuTargetId }
-        } else {
-            sessions.firstOrNull { it.id == sessionMenuTargetId }
-        }
+    val sessionMenuTarget = remember(sessions, sessionMenuTargetId) {
+        sessions.firstOrNull { it.id == sessionMenuTargetId }
     }
     if (sessionMenuTarget != null) {
         RecordActionMenuDialog(
@@ -1265,12 +1150,8 @@ fun SettingsScreen(
     }
 
     // Edit Session Modal ("ပြင်မည်" -> updates exact record by ID without creating duplicate entries)
-    val editingSessionTarget = remember(sessions, editingSessionId, editingSessionOldName) {
-        if (editingSessionOldName != null) {
-            sessions.firstOrNull { it.name == editingSessionOldName } ?: sessions.firstOrNull { it.id == editingSessionId }
-        } else {
-            sessions.firstOrNull { it.id == editingSessionId }
-        }
+    val editingSessionTarget = remember(sessions, editingSessionId) {
+        sessions.firstOrNull { it.id == editingSessionId }
     }
     if (editingSessionTarget != null) {
         AlertDialog(
@@ -1336,14 +1217,12 @@ fun SettingsScreen(
                         if (cleanName.isNotEmpty()) {
                             val rateVal = MainViewModel.parseDoubleOrZero(editModalSessionRate)
                             val multVal = MainViewModel.parseDoubleOrZero(editModalSessionMult)
-                            val updated = viewModel.updateSessionRecord(
-                                targetId = editingSessionTarget.id,
-                                oldName = editingSessionOldName ?: editingSessionTarget.name,
-                                updatedSession = Session(
+                            val updated = viewModel.updateSessionById(
+                                sessionId = editingSessionTarget.id,
+                                updatedSession = editingSessionTarget.copy(
                                     name = cleanName,
                                     rate = rateVal,
-                                    mult = multVal,
-                                    id = editingSessionTarget.id
+                                    mult = multVal
                                 )
                             )
                             if (updated) {
@@ -1378,12 +1257,8 @@ fun SettingsScreen(
     }
 
     // Delete Session Confirmation Dialog ("ဤအကြိမ်ရေအား ဖျက်မည်လား?" with "မဖျက်ပါ" and "ဖျက်မည်")
-    val deletingSessionTarget = remember(sessions, deletingSessionId, deletingSessionName) {
-        if (deletingSessionName != null) {
-            sessions.firstOrNull { it.name == deletingSessionName } ?: sessions.firstOrNull { it.id == deletingSessionId }
-        } else {
-            sessions.firstOrNull { it.id == deletingSessionId }
-        }
+    val deletingSessionTarget = remember(sessions, deletingSessionId) {
+        sessions.firstOrNull { it.id == deletingSessionId }
     }
     if (deletingSessionTarget != null) {
         DeleteConfirmDialog(
@@ -1404,7 +1279,7 @@ fun SettingsScreen(
                 }
                 deletingSessionId = null
                 deletingSessionName = null
-                viewModel.deleteSessionRecord(targetId, targetName)
+                viewModel.deleteSessionById(targetId)
             }
         )
     }

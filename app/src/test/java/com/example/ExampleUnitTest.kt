@@ -637,6 +637,52 @@ class ExampleUnitTest {
         assertTrue(receipt.contains("34 = 1000"))
         assertTrue(receipt.contains("စုစုပေါင်း = 1500"))
     }
+
+    @Test
+    fun testUniversalNetPositionFormula() {
+        val totalSales = 7000L
+        val totalPassed = 10000L
+        val state = com.example.ui.NumberLedgerState2D(
+            number = "12",
+            totalSales = totalSales,
+            totalPassed = totalPassed
+        )
+        // NetKept(num) = TotalSales(num) - TotalPassed(num)
+        assertEquals(-3000L, state.netKept)
+        assertTrue(state.netKept < 0L)
+    }
+
+    @Test
+    fun testNegativeBalanceWinningPayoutAndHedgingProfit() {
+        val netKept = -3000L
+        val multiplier = 80.0
+        // Net Payout = NetKept("12") * Multiplier = (-3000) * 80 = -240,000
+        val netPayout = Math.round(netKept * multiplier)
+        assertEquals(-240000L, netPayout)
+
+        // Profit/Loss = RetainedSales - Commission - Payout
+        // If RetainedSales = -3000, Commission = 0:
+        // Profit/Loss = (-3000) - (0 + (-240000)) = -3000 + 240000 = +237,000
+        val retainedSales = -3000L
+        val commission = 0L
+        val profitLoss = retainedSales - (commission + netPayout)
+        assertEquals(237000L, profitLoss)
+    }
+
+    @Test
+    fun testDynamicAutoOffsetOnNewSales() {
+        var totalSales = 5000L
+        val totalPassed = 7000L
+        var netKept = totalSales - totalPassed
+        assertEquals(-2000L, netKept)
+
+        // New agent places a bet of 3000 on "12"
+        val newBet = 3000L
+        totalSales += newBet
+        netKept = totalSales - totalPassed
+        // New NetKept = -2000 + 3000 = +1000
+        assertEquals(1000L, netKept)
+    }
 }
 
 

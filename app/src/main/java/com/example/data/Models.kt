@@ -18,8 +18,16 @@ data class Session(
     val name: String,
     val rate: Double = 0.0,
     val mult: Double = 0.0,
-    val id: Long = sessionIdCounter.incrementAndGet()
-)
+    val id: Long = sessionIdCounter.incrementAndGet(),
+    val date: String = "",
+    val winningNumber: String? = null,
+    val isClosed: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
+) {
+    val sessionName: String get() = name
+    val defaultCommission: Double get() = rate
+    val defaultMultiplier: Double get() = mult
+}
 
 data class BetItem(
     val n: String,

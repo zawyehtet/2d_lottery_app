@@ -16,6 +16,8 @@ class StorageRepository(context: Context) {
     val settlementDao: SettlementDao = database.settlementDao()
     val dailySettlementDao: DailySettlementDao = database.dailySettlementDao()
     val sessionDao: SessionDao = database.sessionDao()
+    val session2DDao: Session2DDao = database.session2DDao()
+    val passBetRecordDao: PassBetRecordDao = database.passBetRecordDao()
 
     companion object {
         private const val KEY_AGENTS = "lucky2d_agents"
@@ -34,6 +36,10 @@ class StorageRepository(context: Context) {
         private val DEFAULT_ROUND_NAMES_4PM = setOf("4.PM", "4PM")
     }
 
+    init {
+        migrateLegacyDefaultsIfNeeded()
+    }
+
     private fun isUntouchedDefaultSessions(list: List<Session>): Boolean {
         if (list.size != 2) return false
         val first = list[0]
@@ -46,59 +52,145 @@ class StorageRepository(context: Context) {
             second.mult == 80.0
     }
 
-    // Sessions (Rounds) - starts empty on fresh install; migrates untouched pre-seeded defaults once
-    fun loadSessions(): List<Session> {
-        return try {
-            val migrated = prefs.getBoolean(KEY_SESSIONS_MIGRATED_V1, false)
-            val jsonStr = prefs.getString(KEY_SESSIONS, null)
+    private fun parseSessionsJson(jsonStr: String): List<Session> {
+        val list = mutableListOf<Session>()
+        try {
+            val arr = JSONArray(jsonStr)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    Session(
+                        name = obj.getString("name"),
+                        rate = obj.optDouble("rate", 0.0),
+                        mult = obj.optDouble("mult", 0.0),
+                        id = obj.optLong("id", System.currentTimeMillis() + i),
+                        date = obj.optString("date", ""),
+                        winningNumber = obj.optString("winningNumber", "").ifEmpty { null },
+                        isClosed = obj.optBoolean("isClosed", false)
+                    )
+                )
+            }
+        } catch (_: Exception) {}
+        return list
+    }
 
-            if (jsonStr.isNullOrEmpty()) {
-                if (!migrated) {
-                    prefs.edit().putBoolean(KEY_SESSIONS_MIGRATED_V1, true).apply()
+    private fun migrateLegacyDefaultsIfNeeded() {
+        try {
+            if (!prefs.getBoolean(KEY_SESSIONS_MIGRATED_V1, false)) {
+                val legacySessionsJson = prefs.getString(KEY_SESSIONS, null)
+                if (!legacySessionsJson.isNullOrEmpty()) {
+                    val parsed = parseSessionsJson(legacySessionsJson)
+                    if (isUntouchedDefaultSessions(parsed)) {
+                        prefs.edit()
+                            .remove(KEY_SESSIONS)
+                            .putBoolean(KEY_SESSIONS_MIGRATED_V1, true)
+                            .commit()
+                        sessionDao.clearAllSessionsSync()
+                        session2DDao.clearAllSessionsSync()
+                    } else {
+                        prefs.edit().putBoolean(KEY_SESSIONS_MIGRATED_V1, true).commit()
+                    }
+                } else {
+                    prefs.edit().putBoolean(KEY_SESSIONS_MIGRATED_V1, true).commit()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("StorageRepository", "Error migrating legacy sessions", e)
+        }
+    }
+
+    // Sessions (Rounds) - strictly composite-bound by Date
+    fun loadSessionsForDate(date: String): List<Session> {
+        migrateLegacyDefaultsIfNeeded()
+        val asciiDate = date.toAsciiDigits()
+        return try {
+            val roomSessions = session2DDao.getSessionsByDateSync(asciiDate).map { it.toDomainSession() }
+            if (roomSessions.isNotEmpty()) {
+                return roomSessions.sortedBy { it.id }
+            }
+            // Fallback: check prefs for this specific date
+            val dateKey = "${KEY_SESSIONS}_$asciiDate"
+            val jsonStr = prefs.getString(dateKey, null)
+            if (!jsonStr.isNullOrEmpty()) {
+                val list = parseSessionsJson(jsonStr)
+                if (list.isNotEmpty()) {
+                    session2DDao.insertAllSessionsSync(list.map { Session2DEntity.fromDomainSession(it, asciiDate) })
+                    return list.sortedBy { it.id }
+                }
+            }
+            emptyList()
+        } catch (e: Exception) {
+            Log.e("StorageRepository", "Error loading sessions for date $asciiDate", e)
+            emptyList()
+        }
+    }
+
+    fun loadSessions(): List<Session> {
+        migrateLegacyDefaultsIfNeeded()
+        return try {
+            val all2D = session2DDao.getAllSessionsSync()
+            if (all2D.isNotEmpty()) {
+                return all2D.map { it.toDomainSession() }.sortedBy { it.id }
+            }
+            val roomSessions = sessionDao.getAllSessionsSync()
+            if (roomSessions.isNotEmpty()) {
+                val mapped = roomSessions.map { it.toDomainSession() }.sortedBy { it.id }
+                if (isUntouchedDefaultSessions(mapped)) {
                     sessionDao.clearAllSessionsSync()
                     emptyList()
                 } else {
-                    val roomSessions = sessionDao.getAllSessionsSync().map { it.toDomainSession() }
-                    roomSessions
+                    mapped
                 }
             } else {
-                val arr = JSONArray(jsonStr)
-                val list = mutableListOf<Session>()
-                for (i in 0 until arr.length()) {
-                    val obj = arr.getJSONObject(i)
-                    val savedId = obj.optLong("id", 0L)
-                    list.add(
-                        if (savedId > 0L) {
-                            Session(
-                                name = obj.getString("name"),
-                                rate = obj.optDouble("rate", 0.0),
-                                mult = obj.optDouble("mult", 0.0),
-                                id = savedId
-                            )
-                        } else {
-                            Session(
-                                name = obj.getString("name"),
-                                rate = obj.optDouble("rate", 0.0),
-                                mult = obj.optDouble("mult", 0.0)
-                            )
-                        }
-                    )
-                }
-
-                if (!migrated) {
-                    prefs.edit().putBoolean(KEY_SESSIONS_MIGRATED_V1, true).apply()
-                    if (isUntouchedDefaultSessions(list)) {
-                        saveSessions(emptyList())
-                        return emptyList()
+                val legacyJson = prefs.getString(KEY_SESSIONS, null)
+                if (!legacyJson.isNullOrEmpty()) {
+                    val parsed = parseSessionsJson(legacyJson)
+                    if (isUntouchedDefaultSessions(parsed)) {
+                        emptyList()
+                    } else {
+                        parsed
                     }
+                } else {
+                    emptyList()
                 }
-                sessionDao.clearAllSessionsSync()
-                sessionDao.insertAllSessionsSync(list.map { SessionEntity.fromDomainSession(it) })
-                list
             }
         } catch (e: Exception) {
-            Log.e("StorageRepository", "Error loading sessions", e)
+            Log.e("StorageRepository", "Error loading all sessions", e)
             emptyList()
+        }
+    }
+
+    fun saveSessionsForDate(date: String, sessions: List<Session>) {
+        val asciiDate = date.toAsciiDigits()
+        try {
+            val dateKey = "${KEY_SESSIONS}_$asciiDate"
+            val arr = JSONArray()
+            sessions.forEach { s ->
+                val obj = JSONObject().apply {
+                    put("id", s.id)
+                    put("name", s.name)
+                    put("rate", s.rate)
+                    put("mult", s.mult)
+                    put("date", asciiDate)
+                    put("winningNumber", s.winningNumber ?: "")
+                    put("isClosed", s.isClosed)
+                }
+                arr.put(obj)
+            }
+            prefs.edit().putString(dateKey, arr.toString()).apply()
+
+            val existingInRoom = session2DDao.getSessionsByDateSync(asciiDate)
+            existingInRoom.forEach { existing ->
+                if (sessions.none { it.id == existing.id }) {
+                    session2DDao.deleteSessionByIdSync(existing.id)
+                }
+            }
+            sessions.forEach { s ->
+                val entity = Session2DEntity.fromDomainSession(s, asciiDate)
+                session2DDao.insertSessionSync(entity)
+            }
+        } catch (e: Exception) {
+            Log.e("StorageRepository", "Error saving sessions for date $asciiDate", e)
         }
     }
 
@@ -111,72 +203,103 @@ class StorageRepository(context: Context) {
                     put("name", s.name)
                     put("rate", s.rate)
                     put("mult", s.mult)
+                    put("date", s.date)
+                    put("winningNumber", s.winningNumber ?: "")
+                    put("isClosed", s.isClosed)
                 }
                 arr.put(obj)
             }
-            prefs.edit()
-                .putString(KEY_SESSIONS, arr.toString())
-                .putBoolean(KEY_SESSIONS_MIGRATED_V1, true)
-                .apply()
-            sessionDao.clearAllSessionsSync()
-            sessionDao.insertAllSessionsSync(sessions.map { SessionEntity.fromDomainSession(it) })
+            prefs.edit().putString(KEY_SESSIONS, arr.toString()).apply()
+            sessions.groupBy { it.date.ifEmpty { "GLOBAL" } }.forEach { (d, list) ->
+                if (d != "GLOBAL") {
+                    saveSessionsForDate(d, list)
+                }
+            }
         } catch (e: Exception) {
             Log.e("StorageRepository", "Error saving sessions", e)
         }
     }
 
     fun updateSessionById(sessionId: Long, updatedSession: Session): List<Session>? {
-        val current = loadSessions()
+        val targetEntity = session2DDao.getSessionByIdSync(sessionId)
+        val date = (targetEntity?.date ?: updatedSession.date).toAsciiDigits()
+        val current = if (date.isNotEmpty()) loadSessionsForDate(date) else loadSessions()
         val target = current.firstOrNull { it.id == sessionId } ?: return null
         val oldName = target.name
         val newName = updatedSession.name
+        val normalized = updatedSession.copy(id = sessionId, date = date)
+
+        session2DDao.updateSessionByIdSync(sessionId, newName, normalized.rate, normalized.mult)
         val updated = current.map { s ->
-            if (s.id == sessionId) updatedSession.copy(id = sessionId) else s
+            if (s.id == sessionId) normalized else s
         }
-        saveSessions(updated)
+        if (date.isNotEmpty()) {
+            saveSessionsForDate(date, updated)
+        } else {
+            saveSessions(updated)
+        }
         if (oldName.isNotBlank() && newName.isNotBlank() && oldName != newName) {
-            renameSessionAcrossDatabase(oldName, newName)
+            renameSessionAcrossDatabase(date, oldName, newName)
         }
         return updated
     }
 
-    fun renameSessionAcrossDatabase(oldName: String, newName: String) {
+    fun renameSessionAcrossDatabase(date: String, oldName: String, newName: String) {
         if (oldName.isBlank() || newName.isBlank() || oldName == newName) return
+        val asciiDate = date.toAsciiDigits()
         try {
-            voucherDao.renameRoundSync(oldName, newName)
-            winningNumberDao.renameRoundSync(oldName, newName)
-            settlementDao.renameRoundSync(oldName, newName)
-            agentDao.renameRoundSync(oldName, newName)
+            if (asciiDate.isNotEmpty()) {
+                voucherDao.renameRoundForDateSync(asciiDate, oldName, newName)
+                winningNumberDao.renameRoundForDateSync(asciiDate, oldName, newName)
+                settlementDao.renameRoundForDateSync(asciiDate, oldName, newName)
+                agentDao.renameRoundForDateSync(asciiDate, oldName, newName)
+                passBetRecordDao.renameRoundForDateSync(asciiDate, oldName, newName)
 
-            val currentVouchers = loadVouchers()
-            val updatedVouchers = currentVouchers.map { if (it.session == oldName) it.copy(session = newName) else it }
-            saveVouchers(updatedVouchers)
+                val currentVouchers = loadVouchers()
+                val updatedVouchers = currentVouchers.map {
+                    if (it.date.toAsciiDigits() == asciiDate && it.session == oldName) it.copy(session = newName) else it
+                }
+                saveVouchers(updatedVouchers)
 
-            val currentWins = loadWins()
-            val updatedWins = currentWins.map { if (it.session == oldName) it.copy(session = newName) else it }
-            saveWins(updatedWins)
+                val currentWins = loadWins()
+                val updatedWins = currentWins.map {
+                    if (it.date.toAsciiDigits() == asciiDate && it.session == oldName) it.copy(session = newName) else it
+                }
+                saveWins(updatedWins)
 
-            val currentSettled = loadSettled()
-            val updatedSettled = currentSettled.map { if (it.session == oldName) it.copy(session = newName) else it }
-            saveSettled(updatedSettled)
+                val currentSettled = loadSettled()
+                val updatedSettled = currentSettled.map {
+                    if (it.date.toAsciiDigits() == asciiDate && it.session == oldName) it.copy(session = newName) else it
+                }
+                saveSettled(updatedSettled)
 
-            val currentLayoffs = loadLayoffs()
-            val updatedLayoffs = currentLayoffs.map { if (it.session == oldName) it.copy(session = newName) else it }
-            saveLayoffs(updatedLayoffs)
-
-            val currentAgents = loadAgents()
-            val updatedAgents = currentAgents.map { if (it.roundNumber == oldName) it.copy(roundNumber = newName) else it }
-            saveAgents(updatedAgents)
+                val currentLayoffs = loadLayoffs()
+                val updatedLayoffs = currentLayoffs.map {
+                    if (it.date.toAsciiDigits() == asciiDate && it.session == oldName) it.copy(session = newName) else it
+                }
+                saveLayoffs(updatedLayoffs)
+            } else {
+                voucherDao.renameRoundSync(oldName, newName)
+                winningNumberDao.renameRoundSync(oldName, newName)
+                settlementDao.renameRoundSync(oldName, newName)
+                agentDao.renameRoundSync(oldName, newName)
+            }
         } catch (e: Exception) {
             Log.e("StorageRepository", "Error renaming session across database", e)
         }
     }
 
-    fun deleteSessionById(sessionId: Long): List<Session>? {
-        val current = loadSessions()
-        if (current.none { it.id == sessionId }) return null
+    fun deleteSessionById(sessionId: Long, date: String = ""): List<Session>? {
+        val asciiDate = date.toAsciiDigits()
+        session2DDao.deleteSessionByIdSync(sessionId)
+        sessionDao.clearAllSessionsSync()
+        val current = if (asciiDate.isNotEmpty()) loadSessionsForDate(asciiDate) else loadSessions()
         val updated = current.filter { it.id != sessionId }
-        saveSessions(updated)
+        if (asciiDate.isNotEmpty()) {
+            saveSessionsForDate(asciiDate, updated)
+        } else {
+            saveSessions(updated)
+        }
         return updated
     }
 
@@ -559,6 +682,8 @@ class StorageRepository(context: Context) {
                 arr.put(obj)
             }
             prefs.edit().putString(KEY_LAYOFFS, arr.toString()).apply()
+            passBetRecordDao.clearAllPassBetRecordsSync()
+            passBetRecordDao.insertAllPassBetRecordsSync(layoffs.map { PassBetRecordEntity.fromDomainLayoffRecord(it) })
         } catch (e: Exception) {
             Log.e("StorageRepository", "Error saving layoffs", e)
         }
@@ -1007,6 +1132,8 @@ class StorageRepository(context: Context) {
             settlementDao.clearAllSettlementsSync()
             dailySettlementDao.clearAllDailySettlementsSync()
             sessionDao.clearAllSessionsSync()
+            session2DDao.clearAllSessionsSync()
+            passBetRecordDao.clearAllPassBetRecordsSync()
         } catch (e: Exception) {
             Log.e("StorageRepository", "Error resetting data", e)
         }

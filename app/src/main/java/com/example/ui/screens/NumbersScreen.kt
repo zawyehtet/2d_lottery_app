@@ -213,14 +213,17 @@ fun NumbersScreen(
                                 index % 2 == 0 -> LuckyCard
                                 else -> LuckyCardDark
                             }
+                            val isNegative = item.netAmount < 0L
                             val rowTextColor = when {
                                 isWinningRow -> Color(0xFFB91C1C)
-                                item.totalBet > 0L -> LuckyTextPrimary
+                                isNegative -> Color(0xFFDC2626)
+                                item.netAmount != 0L || item.totalBet > 0L -> LuckyTextPrimary
                                 else -> LuckyTextMuted
                             }
                             val numTextColor = when {
                                 isWinningRow -> Color(0xFFB91C1C)
-                                item.totalBet > 0L -> LuckyHeader
+                                isNegative -> Color(0xFFDC2626)
+                                item.netAmount != 0L || item.totalBet > 0L -> LuckyHeader
                                 else -> LuckyTextSecondary
                             }
 
@@ -301,9 +304,9 @@ fun NumbersScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = fmt(item.totalBet),
+                                        text = fmt(item.netAmount),
                                         color = rowTextColor,
-                                        fontWeight = if (item.totalBet > 0L || isWinningRow) FontWeight.ExtraBold else FontWeight.Normal,
+                                        fontWeight = if (isNegative || item.netAmount != 0L || isWinningRow) FontWeight.ExtraBold else FontWeight.Normal,
                                         fontSize = 15.sp,
                                         fontFamily = FontFamily.Monospace,
                                         maxLines = 1,
@@ -594,5 +597,47 @@ fun NumberAgentBreakdownDialog(
                 }
             }
         }
+    }
+}
+
+/**
+ * UI Composable for Displaying Signed Amount (Handles Negatives Cleanly in bold red).
+ */
+@Composable
+fun KeptBetRowItem2D(
+    number: String,
+    netKeptAmount: Long,
+    isWinning: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val isNegative = netKeptAmount < 0L
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp, horizontal = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = number,
+            color = when {
+                isWinning -> Color(0xFFB91C1C)
+                isNegative -> Color(0xFFDC2626)
+                else -> LuckyTextPrimary
+            },
+            fontWeight = if (isWinning || isNegative) FontWeight.ExtraBold else FontWeight.Bold,
+            fontSize = 14.sp
+        )
+        Text(
+            text = fmt(netKeptAmount),
+            color = when {
+                isWinning -> Color(0xFFB91C1C)
+                isNegative -> Color(0xFFDC2626)
+                else -> LuckyTextPrimary
+            },
+            fontWeight = if (isWinning || isNegative) FontWeight.ExtraBold else FontWeight.Bold,
+            fontSize = 14.sp,
+            fontFamily = FontFamily.Monospace
+        )
     }
 }

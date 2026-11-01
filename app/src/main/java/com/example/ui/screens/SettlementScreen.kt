@@ -1084,7 +1084,7 @@ fun WinningNumberSummaryHeaderCard(
         if (formatted == "-") noWinnerSymbol else formatted
     }
     val safeAmount = remember(displayNumber, noWinnerSymbol, winningBetAmount) {
-        if (displayNumber == noWinnerSymbol) 0L else winningBetAmount.coerceAtLeast(0L)
+        if (displayNumber == noWinnerSymbol) 0L else winningBetAmount
     }
     val formattedAmountThousands = remember(safeAmount) { fmtThousands(safeAmount) }
     val formattedAmountPlain = remember(safeAmount) { fmt(safeAmount) }

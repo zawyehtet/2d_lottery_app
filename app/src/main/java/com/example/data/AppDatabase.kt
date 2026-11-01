@@ -12,6 +12,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Update
+import androidx.room.Delete
 import kotlinx.coroutines.flow.Flow
 import org.json.JSONArray
 import org.json.JSONObject
@@ -226,6 +228,9 @@ interface VoucherDao {
     @Query("UPDATE vouchers SET roundNumber = :newName WHERE roundNumber = :oldName")
     fun renameRoundSync(oldName: String, newName: String)
 
+    @Query("UPDATE vouchers SET roundNumber = :newName WHERE date = :date AND roundNumber = :oldName")
+    fun renameRoundForDateSync(date: String, oldName: String, newName: String)
+
     @Query("DELETE FROM vouchers WHERE voucherId = :id")
     fun deleteVoucherByIdSync(id: Long)
 
@@ -252,6 +257,9 @@ interface WinningNumberDao {
 
     @Query("UPDATE winning_numbers SET roundNumber = :newName WHERE roundNumber = :oldName")
     fun renameRoundSync(oldName: String, newName: String)
+
+    @Query("UPDATE winning_numbers SET roundNumber = :newName WHERE date = :date AND roundNumber = :oldName")
+    fun renameRoundForDateSync(date: String, oldName: String, newName: String)
 
     @Query("SELECT * FROM winning_numbers ORDER BY id ASC")
     fun getAllWinningNumbersSync(): List<WinningNumberEntity>
@@ -282,6 +290,9 @@ interface SettlementDao {
 
     @Query("UPDATE settlements SET roundNumber = :newName WHERE roundNumber = :oldName")
     fun renameRoundSync(oldName: String, newName: String)
+
+    @Query("UPDATE settlements SET roundNumber = :newName WHERE date = :date AND roundNumber = :oldName")
+    fun renameRoundForDateSync(date: String, oldName: String, newName: String)
 
     @Query("SELECT * FROM settlements ORDER BY id ASC")
     fun getAllSettlementsSync(): List<SettlementEntity>
@@ -387,11 +398,101 @@ interface PassBetRecordDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAllPassBetRecordsSync(records: List<PassBetRecordEntity>)
 
+    @Query("UPDATE pass_bet_records SET sessionName = :newName WHERE date = :date AND sessionName = :oldName")
+    fun renameRoundForDateSync(date: String, oldName: String, newName: String)
+
     @Query("DELETE FROM pass_bet_records WHERE id = :id")
     fun deletePassBetRecordByIdSync(id: Long)
 
     @Query("DELETE FROM pass_bet_records")
     fun clearAllPassBetRecordsSync()
+}
+
+@Entity(
+    tableName = "sessions_2d",
+    indices = [Index(value = ["date", "sessionName"], unique = true)]
+)
+data class Session2DEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val date: String,             // ISO "yyyy-MM-dd"
+    val sessionName: String,      // e.g., "29.AM"
+    val defaultCommission: Double,
+    val defaultMultiplier: Double,
+    val winningNumber: String? = null,
+    val isClosed: Boolean = false, // If settled or winning number entered -> true
+    val createdAt: Long = System.currentTimeMillis()
+) {
+    fun toDomainSession(): Session = Session(
+        name = sessionName,
+        rate = defaultCommission,
+        mult = defaultMultiplier,
+        id = id,
+        date = date,
+        winningNumber = winningNumber,
+        isClosed = isClosed,
+        createdAt = createdAt
+    )
+
+    companion object {
+        fun fromDomainSession(s: Session, defaultDate: String = ""): Session2DEntity = Session2DEntity(
+            id = if (s.id > 0) s.id else 0L,
+            date = if (s.date.isNotBlank()) s.date else defaultDate,
+            sessionName = s.name,
+            defaultCommission = s.rate,
+            defaultMultiplier = s.mult,
+            winningNumber = s.winningNumber,
+            isClosed = s.isClosed,
+            createdAt = if (s.createdAt > 0L) s.createdAt else System.currentTimeMillis()
+        )
+    }
+}
+
+@Dao
+interface Session2DDao {
+    @Query("SELECT * FROM sessions_2d WHERE date = :date ORDER BY id ASC")
+    fun getSessionsByDate(date: String): Flow<List<Session2DEntity>>
+
+    @Query("SELECT * FROM sessions_2d WHERE date = :date ORDER BY id ASC")
+    fun getSessionsByDateSync(date: String): List<Session2DEntity>
+
+    @Query("SELECT * FROM sessions_2d ORDER BY date ASC, id ASC")
+    fun getAllSessionsSync(): List<Session2DEntity>
+
+    @Query("SELECT * FROM sessions_2d WHERE id = :id LIMIT 1")
+    fun getSessionByIdSync(id: Long): Session2DEntity?
+
+    @Query("SELECT * FROM sessions_2d WHERE date = :date AND sessionName = :sessionName LIMIT 1")
+    fun getSessionByDateAndNameSync(date: String, sessionName: String): Session2DEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertSessionSync(session: Session2DEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertAllSessionsSync(sessions: List<Session2DEntity>)
+
+    @Update
+    fun updateSessionSync(session: Session2DEntity)
+
+    @Query("UPDATE sessions_2d SET sessionName = :newName, defaultCommission = :rate, defaultMultiplier = :mult WHERE id = :id")
+    fun updateSessionByIdSync(id: Long, newName: String, rate: Double, mult: Double)
+
+    @Query("UPDATE sessions_2d SET winningNumber = :win, isClosed = :closed WHERE id = :id")
+    fun updateWinningNumberAndLockSync(id: Long, win: String?, closed: Boolean)
+
+    @Query("UPDATE sessions_2d SET winningNumber = :win, isClosed = :closed WHERE date = :date AND sessionName = :sessionName")
+    fun updateWinningNumberByDateAndNameSync(date: String, sessionName: String, win: String?, closed: Boolean)
+
+    @Query("DELETE FROM sessions_2d WHERE id = :id")
+    fun deleteSessionByIdSync(id: Long)
+
+    @Query("DELETE FROM sessions_2d WHERE date = :date AND sessionName = :sessionName")
+    fun deleteSessionByDateAndNameSync(date: String, sessionName: String)
+
+    @Query("DELETE FROM sessions_2d")
+    fun clearAllSessionsSync()
+
+    @Query("SELECT DISTINCT date FROM sessions_2d ORDER BY date DESC")
+    fun getAllDatesSync(): List<String>
 }
 
 typealias AgentEntity = com.example.data.local.entity.AgentEntity
@@ -407,9 +508,10 @@ typealias DailySettlementDao = com.example.data.local.dao.DailySettlementDao
         SettlementEntity::class,
         DailySettlementEntity::class,
         SessionEntity::class,
+        Session2DEntity::class,
         PassBetRecordEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -419,6 +521,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun settlementDao(): SettlementDao
     abstract fun dailySettlementDao(): DailySettlementDao
     abstract fun sessionDao(): SessionDao
+    abstract fun session2DDao(): Session2DDao
     abstract fun passBetRecordDao(): PassBetRecordDao
 
     companion object {

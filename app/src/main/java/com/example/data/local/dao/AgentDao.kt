@@ -50,6 +50,9 @@ interface AgentDao {
     @Query("UPDATE agents SET roundNumber = :newName WHERE roundNumber = :oldName")
     fun renameRoundSync(oldName: String, newName: String)
 
+    @Query("UPDATE agents SET roundNumber = :newName WHERE date = :date AND roundNumber = :oldName")
+    fun renameRoundForDateSync(date: String, oldName: String, newName: String)
+
     @Query("DELETE FROM agents")
     fun clearAllAgentsSync()
 }
