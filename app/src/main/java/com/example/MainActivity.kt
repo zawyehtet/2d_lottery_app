@@ -49,11 +49,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val context = LocalContext.current
+                var showSplash by remember { mutableStateOf(true) }
                 var isActivated by remember {
                     mutableStateOf(LicenseManager.isAppActivated(context))
                 }
 
-                if (!isActivated) {
+                if (showSplash) {
+                    SplashScreen(
+                        onSplashFinished = {
+                            showSplash = false
+                        }
+                    )
+                } else if (!isActivated) {
                     ActivationScreen(
                         onActivated = {
                             isActivated = true

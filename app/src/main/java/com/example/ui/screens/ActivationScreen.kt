@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
@@ -171,17 +174,16 @@ fun ActivationScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // 1. App Logo & Brand Title
-            Box(
+            Image(
+                painter = painterResource(id = R.drawable.ic_lucky2d_logo),
+                contentDescription = "Lucky 2D Brand Logo",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(84.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFEFF9D1))
-                    .border(2.5.dp, LuckyHeader, CircleShape)
-                    .testTag("activation_brand_logo"),
-                contentAlignment = Alignment.Center
-            ) {
-                CloverLogo(size = 80.dp)
-            }
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(1.5.dp, Color(0xFFFEC72E), RoundedCornerShape(16.dp))
+                    .testTag("activation_brand_logo")
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
 
