@@ -38,10 +38,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.BetItem
+import com.example.data.toAsciiDigits
 import com.example.data.BetItemEntity
 import com.example.data.Voucher
 import com.example.data.VoucherEntity
@@ -175,18 +177,22 @@ fun VouchersScreen(
     val availableRounds = remember(sessions, selectedDate, vouchers, wins, settled) {
         viewModel.getAvailableRoundsForDate(selectedDate)
     }
-    val hasRound = selectedSession.isNotBlank() && (sessions.any { it.name == selectedSession } || availableRounds.contains(selectedSession))
+    val cleanDate = selectedDate.toAsciiDigits().trim()
+    val cleanSession = selectedSession.trim()
+    val hasVouchersForSession = vouchers.any { it.date.toAsciiDigits().trim() == cleanDate && it.session.trim() == cleanSession }
+    val hasRound = cleanSession.isNotBlank() && (sessions.any { it.name.trim() == cleanSession } || availableRounds.any { it.trim() == cleanSession } || hasVouchersForSession)
 
     val filterAgent by viewModel.selectedVoucherFilterAgent.collectAsState()
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
-    // Filter and sort vouchers oldest first
-    val filteredVouchers = remember(vouchers, selectedDate, selectedSession, filterAgent, searchQuery, hasRound) {
-        if (!hasRound) {
+    // Filter and sort vouchers oldest first with robust date/session normalization
+    val filteredVouchers = remember(vouchers, cleanDate, cleanSession, filterAgent, searchQuery, hasRound, hasVouchersForSession) {
+        if (!hasRound && !hasVouchersForSession) {
             emptyList()
         } else {
             vouchers.filter { v ->
-                v.date == selectedDate && v.session == selectedSession &&
+                v.date.toAsciiDigits().trim() == cleanDate &&
+                    v.session.trim() == cleanSession &&
                     (filterAgent == "ALL" || v.agent == filterAgent) &&
                     (searchQuery.isBlank() ||
                         v.agent.contains(searchQuery, ignoreCase = true) ||
@@ -264,7 +270,7 @@ fun VouchersScreen(
                             .weight(1f),
                         contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)
                     ) {
-                        items(filteredVouchers, key = { it.id }) { voucher ->
+                        items(filteredVouchers, key = { "${it.id}_${it.no}_${it.items.size}_${it.totalAmount}" }) { voucher ->
                             VoucherCardItem(
                                 voucher = voucher,
                                 betsList = voucher.items,
@@ -578,7 +584,7 @@ fun VoucherCardItem(
             confirmButton = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Left: "ပြင်ဆင်မည်"
                     Button(
@@ -587,11 +593,12 @@ fun VoucherCardItem(
                             editAmountInput = betItem.amount.toString()
                             isEditAmountDialogOpen = true
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(38.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
                     ) {
-                        Text("ပြင်ဆင်မည်", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("ပြင်ဆင်မည်", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                     // Right: "ဖျက်မည်"
                     Button(
@@ -599,11 +606,12 @@ fun VoucherCardItem(
                             onDeleteSingleBet(betItem)
                             selectedBetForAction = null
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(38.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
                     ) {
-                        Text("ဖျက်မည်", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("ဖျက်မည်", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             },
@@ -651,15 +659,16 @@ fun VoucherCardItem(
             confirmButton = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Left: "မလုပ်တော့ပါ"
                     OutlinedButton(
                         onClick = { isEditAmountDialogOpen = false },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(38.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("မလုပ်တော့ပါ", fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                        Text("မလုပ်တော့ပါ", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
                     }
                     // Right: "သိမ်းဆည်းမည်"
                     Button(
@@ -678,11 +687,12 @@ fun VoucherCardItem(
                             isEditAmountDialogOpen = false
                             selectedBetForAction = null
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(38.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0C4E3E))
                     ) {
-                        Text("သိမ်းဆည်းမည်", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("သိမ်းဆည်းမည်", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             },

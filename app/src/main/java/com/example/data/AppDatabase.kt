@@ -234,6 +234,9 @@ interface VoucherDao {
     @Query("DELETE FROM vouchers WHERE voucherId = :id")
     fun deleteVoucherByIdSync(id: Long)
 
+    @Query("DELETE FROM vouchers WHERE date = :date AND roundNumber = :round AND (agentId = :agentId OR agentName = :agentName)")
+    fun deleteVouchersByAgentAndSessionSync(date: String, round: String, agentId: Int, agentName: String)
+
     @Query("DELETE FROM vouchers")
     fun clearAllVouchersSync()
 }

@@ -549,6 +549,27 @@ class StorageRepository(context: Context) {
     }
 
     /**
+     * Deletes all vouchers belonging to [agentId] or [agentName] ONLY within [date] and [round].
+     * Never affects vouchers from other dates or sessions.
+     */
+    fun deleteVouchersByAgentAndSessionSync(date: String, round: String, agentId: Int, agentName: String): List<Voucher> {
+        val asciiDate = date.toAsciiDigits().trim()
+        val current = loadVouchers()
+        val updated = current.filterNot { v ->
+            v.date.toAsciiDigits().trim() == asciiDate &&
+                v.session.trim() == round.trim() &&
+                (v.agentId == agentId || v.agent == agentName)
+        }
+        try {
+            voucherDao.deleteVouchersByAgentAndSessionSync(asciiDate, round.trim(), agentId, agentName)
+        } catch (e: Exception) {
+            Log.e("StorageRepository", "Error deleting vouchers by agent and session", e)
+        }
+        saveVouchers(updated)
+        return updated
+    }
+
+    /**
      * Deletes ONLY the single number entry matching [numberId] (equivalent to DELETE ... WHERE id = :numberId).
      * Never deletes the parent Voucher object even when its last number is removed.
      */

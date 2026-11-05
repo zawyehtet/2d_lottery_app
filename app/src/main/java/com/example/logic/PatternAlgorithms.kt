@@ -190,11 +190,53 @@ object PatternAlgorithms {
     }
 
     // Parsing results container
+    data class ParsedBetItem(val number: String, val amount: Long)
+
     data class ParseResult(
         val items: List<BetItem>,
         val skippedCount: Int,
-        val blockedSkipped: List<String>
+        val blockedSkipped: List<String>,
+        val invalidTokens: List<String> = emptyList()
     )
+
+    /**
+     * Standalone Fast Bet Line parser supporting double numbers with R duplication (e.g., 33R3000 -> 33=3000, 33=3000)
+     */
+    fun parseFastBetLine(line: String): Pair<List<ParsedBetItem>, List<String>> {
+        val validBets = mutableListOf<ParsedBetItem>()
+        val invalidTokens = mutableListOf<String>()
+
+        val isR = line.contains("R", ignoreCase = true)
+        val parts = line.split(Regex("[=R/]", RegexOption.IGNORE_CASE))
+        if (parts.size < 2) return Pair(emptyList(), listOf(line))
+
+        val numbersPart = parts[0]
+        val amount = parts[1].toLongOrNull() ?: return Pair(emptyList(), listOf(line))
+        val rawTokens = numbersPart.split(".", ",", " ", "/").filter { it.isNotBlank() }
+
+        for (token in rawTokens) {
+            val num = token.trim()
+            if (num.length == 2 && num.all { it.isDigit() }) {
+                if (isR) {
+                    val d1 = num[0]
+                    val d2 = num[1]
+                    if (d1 == d2) {
+                        // Double number (အပူး) with R -> Add TWICE per customer intent
+                        validBets.add(ParsedBetItem(num, amount))
+                        validBets.add(ParsedBetItem(num, amount))
+                    } else {
+                        validBets.add(ParsedBetItem("$d1$d2", amount))
+                        validBets.add(ParsedBetItem("$d2$d1", amount))
+                    }
+                } else {
+                    validBets.add(ParsedBetItem(num, amount))
+                }
+            } else {
+                invalidTokens.add(num)
+            }
+        }
+        return Pair(validBets, invalidTokens)
+    }
 
     /**
      * Strips comment lines (such as `( a=အပါ, ... )` or divider lines `---------`) and inline parenthetical guide notes before tokenizing.
@@ -223,10 +265,11 @@ object PatternAlgorithms {
         val items = mutableListOf<BetItem>()
         var skipped = 0
         val blockedList = mutableListOf<String>()
+        val invalidTokens = mutableListOf<String>()
 
         val cleanedText = stripCommentAndGuideLines(text.toAsciiDigits())
         if (cleanedText.isBlank()) {
-            return ParseResult(items, skipped, blockedList)
+            return ParseResult(items, skipped, blockedList, invalidTokens)
         }
 
         // Split into entry tokens while supporting space/comma/dot separation of numbers before '=' or 'R'
@@ -254,11 +297,19 @@ object PatternAlgorithms {
                         val amtDirect = directRaw?.trim()?.toLongOrNull() ?: 0L
                         val amtReverse = reverseRaw?.trim()?.toLongOrNull() ?: -1L
                         val reverseValid = amtReverse == 0L || (validateBetAmount(reverseRaw).isValid && amtReverse <= effectiveLimit)
-                        val numbers = numPart.split(Regex("[.,\\s]+")).filter { it.length == 2 && it.all { c -> c.isDigit() } }
-                        if (numbers.isEmpty() || !directVal.isValid || amtDirect > effectiveLimit || !reverseValid) {
+                        val rawNumbers = numPart.split(Regex("[.,\\s]+")).filter { it.isNotBlank() }
+                        val validNumbers = mutableListOf<String>()
+                        for (raw in rawNumbers) {
+                            if (raw.length == 2 && raw.all { c -> c.isDigit() }) {
+                                validNumbers.add(raw)
+                            } else {
+                                invalidTokens.add(raw)
+                            }
+                        }
+                        if (validNumbers.isEmpty() || !directVal.isValid || amtDirect > effectiveLimit || !reverseValid) {
                             skipped++
                         } else {
-                            for (n in numbers) {
+                            for (n in validNumbers) {
                                 if (blocked.contains(n)) {
                                     blockedList.add(n)
                                 } else {
@@ -279,20 +330,29 @@ object PatternAlgorithms {
                     }
                 }
 
-                // Pattern 2 (Same Amount with R / Reverse): e.g. 01.78R500 or 01.78r500 or 89r350
+                // Pattern 2 (Same Amount with R / Reverse): e.g. 01.78R500 or 01.78r500 or 89r350 or 33R3000
                 if (token.contains("r", ignoreCase = true)) {
                     val rIndex = token.indexOfFirst { it.equals('r', ignoreCase = true) }
                     val numPart = token.substring(0, rIndex)
                     val amtPart = token.substring(rIndex + 1)
                     val amtVal = validateBetAmount(amtPart)
                     val amount = amtPart.trim().toLongOrNull() ?: 0L
-                    val numbers = numPart.split(Regex("[.,\\s]+")).filter { it.length == 2 && it.all { c -> c.isDigit() } }
-                    if (numbers.isEmpty() || !amtVal.isValid || amount > effectiveLimit) {
+                    val rawNumbers = numPart.split(Regex("[.,\\s]+")).filter { it.isNotBlank() }
+                    val validNumbers = mutableListOf<String>()
+                    for (raw in rawNumbers) {
+                        if (raw.length == 2 && raw.all { c -> c.isDigit() }) {
+                            validNumbers.add(raw)
+                        } else {
+                            invalidTokens.add(raw)
+                        }
+                    }
+                    if (validNumbers.isEmpty() || !amtVal.isValid || amount > effectiveLimit) {
                         skipped++
                     } else {
-                        for (n in numbers) {
+                        for (n in validNumbers) {
                             val rev = reverse2D(n)
-                            val listToBet = if (n == rev) listOf(n) else listOf(n, rev)
+                            // When R is specified and it is a double number (အပူး e.g. 33), duplicate entry twice per customer intent
+                            val listToBet = if (n == rev) listOf(n, n) else listOf(n, rev)
                             for (num in listToBet) {
                                 if (blocked.contains(num)) {
                                     blockedList.add(num)
@@ -312,11 +372,19 @@ object PatternAlgorithms {
                         val numPart = parts[0]
                         val amtVal = validateBetAmount(parts[1])
                         val amount = parts[1].trim().toLongOrNull() ?: 0L
-                        val numbers = numPart.split(Regex("[.,\\s]+")).filter { it.length == 2 && it.all { c -> c.isDigit() } }
-                        if (numbers.isEmpty() || !amtVal.isValid || amount > effectiveLimit) {
+                        val rawNumbers = numPart.split(Regex("[.,\\s]+")).filter { it.isNotBlank() }
+                        val validNumbers = mutableListOf<String>()
+                        for (raw in rawNumbers) {
+                            if (raw.length == 2 && raw.all { c -> c.isDigit() }) {
+                                validNumbers.add(raw)
+                            } else {
+                                invalidTokens.add(raw)
+                            }
+                        }
+                        if (validNumbers.isEmpty() || !amtVal.isValid || amount > effectiveLimit) {
                             skipped++
                         } else {
-                            for (n in numbers) {
+                            for (n in validNumbers) {
                                 if (blocked.contains(n)) {
                                     blockedList.add(n)
                                 } else {
@@ -328,13 +396,15 @@ object PatternAlgorithms {
                     }
                 }
 
+                invalidTokens.add(token)
                 skipped++
             } catch (e: Exception) {
+                invalidTokens.add(token)
                 skipped++
             }
         }
 
-        return ParseResult(items, skipped, blockedList)
+        return ParseResult(items, skipped, blockedList, invalidTokens)
     }
 
     // Quick Entry Mode 2 ("အမြန်ထိုး 2"):
@@ -350,10 +420,11 @@ object PatternAlgorithms {
         val items = mutableListOf<BetItem>()
         var skipped = 0
         val blockedList = mutableListOf<String>()
+        val invalidTokens = mutableListOf<String>()
 
         val cleanedText = stripCommentAndGuideLines(text.toAsciiDigits())
         if (cleanedText.isBlank()) {
-            return ParseResult(items, skipped, blockedList)
+            return ParseResult(items, skipped, blockedList, invalidTokens)
         }
 
         val normalizedLines = cleanedText.lines().map { line ->
@@ -375,6 +446,7 @@ object PatternAlgorithms {
                     items.addAll(res.items)
                     skipped += res.skippedCount
                     blockedList.addAll(res.blockedSkipped)
+                    invalidTokens.addAll(res.invalidTokens)
                     continue
                 }
 
@@ -389,6 +461,7 @@ object PatternAlgorithms {
 
                     if (!amtVal.isValid || amount > effectiveLimit) {
                         skipped++
+                        invalidTokens.add(rawToken)
                         continue
                     }
 
@@ -420,6 +493,7 @@ object PatternAlgorithms {
                     val nums = getKway(digitsStr, withDoubles = false)
                     if (!amtVal.isValid || amount > effectiveLimit || nums.isEmpty()) {
                         skipped++
+                        invalidTokens.add(rawToken)
                         continue
                     }
                     for (n in nums) {
@@ -443,6 +517,7 @@ object PatternAlgorithms {
 
                     if (!amtVal.isValid || amount > effectiveLimit) {
                         skipped++
+                        invalidTokens.add(rawToken)
                         continue
                     }
 
@@ -464,13 +539,15 @@ object PatternAlgorithms {
                     continue
                 }
 
+                invalidTokens.add(rawToken)
                 skipped++
             } catch (e: Exception) {
+                invalidTokens.add(rawToken)
                 skipped++
             }
         }
 
-        return ParseResult(items, skipped, blockedList)
+        return ParseResult(items, skipped, blockedList, invalidTokens)
     }
 
     /**

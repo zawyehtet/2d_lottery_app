@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,7 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -108,6 +111,8 @@ fun NumberEntryScreen(
 
     // Dialog / Menu states
     var quickEntryMode by rememberSaveable { mutableStateOf<Int?>(null) } // 1 or 2
+    var blockedNumbersDialogList by rememberSaveable { mutableStateOf<List<String>?>(null) }
+    var invalidNumbersDialogList by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var showKwayDialog by rememberSaveable { mutableStateOf(false) }
     var menuItemIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var editingItemIndex by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -312,7 +317,7 @@ fun NumberEntryScreen(
                     }
                 }
                 if (blockedFound.isNotEmpty()) {
-                    viewModel.showToast("မရဂဏန်း (${blockedFound.joinToString()}) ကို ချန်လှပ်ခဲ့ပါသည်")
+                    blockedNumbersDialogList = blockedFound.distinct()
                 }
                 if (betList.isNotEmpty()) {
                     viewModel.addEntryItems(betList)
@@ -424,7 +429,7 @@ fun NumberEntryScreen(
         }
 
         if (blockedFound.isNotEmpty()) {
-            viewModel.showToast("မရဂဏန်း (${blockedFound.joinToString()}) ကို ချန်လှပ်ခဲ့ပါသည်")
+            blockedNumbersDialogList = blockedFound.distinct()
         }
 
         if (betList.isNotEmpty()) {
@@ -1072,12 +1077,12 @@ fun NumberEntryScreen(
                 mode = mode,
                 blocked = blocked,
                 onDismiss = { quickEntryMode = null },
-                onAddItems = { parsedItems, skipped, blockedList ->
+                onAddItems = { parsedItems, skipped, blockedList, invalidList ->
                     if (blockedList.isNotEmpty()) {
-                        viewModel.showToast("မရဂဏန်း (${blockedList.joinToString()}) ကို ချန်လှပ်ခဲ့ပါသည်")
+                        blockedNumbersDialogList = blockedList.distinct()
                     }
-                    if (skipped > 0) {
-                        viewModel.showToast("မှားယွင်းနေသော စာကြောင်း ($skipped) ခုကို ကျော်ခဲ့ပါသည်")
+                    if (invalidList.isNotEmpty()) {
+                        invalidNumbersDialogList = invalidList.distinct()
                     }
                     if (parsedItems.isNotEmpty()) {
                         viewModel.addEntryItems(parsedItems)
@@ -1113,6 +1118,128 @@ fun NumberEntryScreen(
                 totalAmount = totalAmount,
                 onDismiss = { viewModel.dismissConfirmBetDialog() },
                 onConfirm = { viewModel.confirmAndCommitVoucher() }
+            )
+        }
+
+        // Blocked Numbers AlertDialog ("မရဂဏန်းများ")
+        blockedNumbersDialogList?.let { bList ->
+            AlertDialog(
+                onDismissRequest = { blockedNumbersDialogList = null },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(14.dp),
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFDC2626)
+                        )
+                        Text(
+                            text = "မရဂဏန်းများ",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = Color(0xFFDC2626)
+                        )
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "အောက်ပါ မရဂဏန်းများကို စာရင်းမှ ချန်လှပ်ထားပါသည် -",
+                            fontSize = 13.sp,
+                            color = Color(0xFF475569)
+                        )
+                        Surface(
+                            color = Color(0xFFFEF2F2),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = bList.joinToString(", "),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = Color(0xFFB91C1C),
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { blockedNumbersDialogList = null },
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                    ) {
+                        Text("ပိတ်မည်", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    }
+                },
+                dismissButton = null
+            )
+        }
+
+        // Invalid Formatted Numbers AlertDialog ("မှားယွင်းနေသော ဂဏန်းများ")
+        invalidNumbersDialogList?.let { invList ->
+            AlertDialog(
+                onDismissRequest = { invalidNumbersDialogList = null },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(14.dp),
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            tint = Color(0xFFD97706)
+                        )
+                        Text(
+                            text = "မှားယွင်းနေသော ဂဏန်းများ",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = Color(0xFFD97706)
+                        )
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "အောက်ပါ ဂဏန်း/စာသားများသည် ပုံစံမမှန်သဖြင့် ထည့်သွင်း၍မရပါ -",
+                            fontSize = 13.sp,
+                            color = Color(0xFF475569)
+                        )
+                        Surface(
+                            color = Color(0xFFFFFBEB),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = invList.joinToString(", "),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = Color(0xFF92400E),
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { invalidNumbersDialogList = null },
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+                    ) {
+                        Text("ပိတ်မည်", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    }
+                },
+                dismissButton = null
             )
         }
     }
@@ -1550,7 +1677,7 @@ fun QuickEntryDialog(
     mode: Int,
     blocked: Set<String>,
     onDismiss: () -> Unit,
-    onAddItems: (List<BetItem>, Int, List<String>) -> Unit
+    onAddItems: (List<BetItem>, Int, List<String>, List<String>) -> Unit
 ) {
     val context = LocalContext.current
     var inputText by rememberSaveable(mode) { mutableStateOf("") }
@@ -1745,7 +1872,7 @@ fun QuickEntryDialog(
                             } else {
                                 PatternAlgorithms.parseQuickEntryMode2(inputText, blocked)
                             }
-                            onAddItems(result.items, result.skippedCount, result.blockedSkipped)
+                            onAddItems(result.items, result.skippedCount, result.blockedSkipped, result.invalidTokens)
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = submitBlueColor,

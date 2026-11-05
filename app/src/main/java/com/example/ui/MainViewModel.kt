@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -736,14 +737,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteAgent(agentId: Int) {
-        val date = _selectedDate.value
-        val round = _selectedSession.value
-        if (_agents.value.none { it.id == agentId }) return
+        val date = _selectedDate.value.toAsciiDigits().trim()
+        val round = _selectedSession.value.trim()
+        val targetAgent = _agents.value.find { it.id == agentId } ?: return
         val updated = repository.deleteAgentBySessionSync(date, round, agentId)
         _agents.value = updated
         if (_entryAgent.value?.id == agentId) {
             _entryAgent.value = null
         }
+        // Scope deletion of vouchers & bets ONLY to current date and session:
+        val updatedVouchers = repository.deleteVouchersByAgentAndSessionSync(date, round, agentId, targetAgent.name)
+        _vouchers.value = updatedVouchers
+        refreshAvailableRounds()
+
         viewModelScope.launch {
             repository.agentDao.deleteAgentBySession(date, round, agentId)
         }
@@ -1072,20 +1078,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
     }
 
-    fun getBetsForVoucher(voucherNo: Int): Flow<List<BetItem>> = flow {
-        val cleanDate = _selectedDate.value.toAsciiDigits()
+    fun getBetsForVoucher(voucherNo: Int): Flow<List<BetItem>> = _vouchers.map { list ->
+        val cleanDate = _selectedDate.value.toAsciiDigits().trim()
         val sess = _selectedSession.value.trim()
-        if (cleanDate.isBlank() || sess.isBlank()) {
-            emit(emptyList())
-            return@flow
-        }
-        val v = _vouchers.value.firstOrNull { it.date.toAsciiDigits() == cleanDate && it.session == sess && it.no == voucherNo }
-        emit(v?.items ?: emptyList())
+        val v = list.firstOrNull { it.date.toAsciiDigits().trim() == cleanDate && it.session.trim() == sess && it.no == voucherNo }
+        v?.items ?: emptyList()
     }
 
-    fun getVouchersBySessionOldestFirst(date: String = _selectedDate.value, session: String = _selectedSession.value): Flow<List<Voucher>> = flow {
-        val list = getFilteredVouchers(date, session).sortedBy { it.no }
-        emit(list)
+    fun getVouchersBySessionOldestFirst(date: String = _selectedDate.value, session: String = _selectedSession.value): Flow<List<Voucher>> = _vouchers.map { list ->
+        val cleanDate = date.toAsciiDigits().trim()
+        val cleanSession = session.trim()
+        list.filter {
+            it.date.toAsciiDigits().trim() == cleanDate && it.session.trim() == cleanSession
+        }.sortedBy { it.no }
     }
 
     fun getFilteredLayoffs(date: String = _selectedDate.value, session: String = _selectedSession.value): List<LayoffRecord> {

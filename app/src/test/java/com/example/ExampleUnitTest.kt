@@ -703,6 +703,31 @@ class ExampleUnitTest {
         // New NetKept = -2000 + 3000 = +1000
         assertEquals(1000L, netKept)
     }
+
+    @Test
+    fun testDoubleNumbersWithRPermutationDuplication() {
+        // 1. parseFastBetLine: "12.46.56.33R3000"
+        val (bets, invalid) = PatternAlgorithms.parseFastBetLine("12.46.56.33R3000")
+        assertTrue(invalid.isEmpty())
+        // 12 -> 12, 21; 46 -> 46, 64; 56 -> 56, 65; 33 (pair with R) -> 33, 33 (TWICE)
+        assertEquals(8, bets.size)
+        assertEquals(2, bets.count { it.number == "33" && it.amount == 3000L })
+        assertEquals(1, bets.count { it.number == "12" && it.amount == 3000L })
+        assertEquals(1, bets.count { it.number == "21" && it.amount == 3000L })
+
+        // 2. parseQuickEntryMode1 with "33R3000"
+        val res = PatternAlgorithms.parseQuickEntryMode1("33R3000", emptySet())
+        assertEquals(2, res.items.size)
+        assertEquals("33", res.items[0].n)
+        assertEquals(3000L, res.items[0].a)
+        assertEquals("33", res.items[1].n)
+        assertEquals(3000L, res.items[1].a)
+
+        // 3. Invalid formatted numbers collection
+        val (betsWithInvalid, invalidFound) = PatternAlgorithms.parseFastBetLine("12.999.abc.33R3000")
+        assertEquals(4, betsWithInvalid.size) // 12, 21, 33, 33
+        assertEquals(listOf("999", "abc"), invalidFound)
+    }
 }
 
 
