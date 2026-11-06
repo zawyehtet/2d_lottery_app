@@ -905,5 +905,40 @@ class ExampleRobolectricTest {
         viewModel.setRound("22.PM")
         assertEquals(7200L, viewModel.getDailySettlementForDate("2026-10-22")?.profitOrLoss)
     }
+
+    @Test
+    fun `vouchers appear immediately in reactive state without clearing app storage`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val viewModel = MainViewModel(app)
+        viewModel.resetAllData()
+
+        viewModel.setDate("2026-10-29")
+        viewModel.addSession("29.AM", 10.0, 80.0)
+        viewModel.setRound("29.AM")
+        viewModel.addAgent("ကိုအောင်", 10.0, 80.0)
+        val agent = viewModel.agents.value.first()
+        viewModel.setEntryAgent(agent)
+
+        // Initial state has 0 vouchers
+        assertTrue(viewModel.vouchers.value.isEmpty())
+
+        // Place a bet
+        viewModel.addEntryItems(listOf(BetItem("12", 2000L), BetItem("34", 3000L)))
+        assertTrue(viewModel.commitCurrentVoucher())
+
+        // Vouchers must immediately contain the new voucher in real-time
+        assertEquals(1, viewModel.vouchers.value.size)
+        val v = viewModel.vouchers.value.single()
+        assertEquals(1, v.no)
+        assertEquals(5000L, v.totalAmount)
+        assertEquals("ကိုအောင်", v.agent)
+        assertEquals("2026-10-29", v.date)
+        assertEquals("29.AM", v.session)
+
+        // Database also immediately contains the voucher
+        val dbVouchers = StorageRepository(app).loadVouchersForDateAndRound("2026-10-29", "29.AM")
+        assertEquals(1, dbVouchers.size)
+        assertEquals(v.id, dbVouchers.first().id)
+    }
 }
 

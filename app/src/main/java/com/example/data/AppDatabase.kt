@@ -216,6 +216,12 @@ interface VoucherDao {
     @Query("SELECT DISTINCT roundNumber FROM vouchers WHERE date = :date")
     fun getRoundsByDateSync(date: String): List<String>
 
+    @Query("SELECT * FROM vouchers WHERE date = :date AND roundNumber = :round ORDER BY voucherNo ASC, voucherId ASC")
+    fun getVouchersForSessionFlow(date: String, round: String): Flow<List<VoucherEntity>>
+
+    @Query("SELECT * FROM vouchers ORDER BY voucherNo ASC, voucherId ASC")
+    fun getAllVouchersFlow(): Flow<List<VoucherEntity>>
+
     @Query("SELECT * FROM vouchers ORDER BY voucherNo ASC, voucherId ASC")
     fun getAllVouchersSync(): List<VoucherEntity>
 

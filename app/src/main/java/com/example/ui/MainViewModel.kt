@@ -5,9 +5,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import com.example.util.SoundManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -279,6 +282,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _vouchers = MutableStateFlow<List<Voucher>>(emptyList())
     val vouchers: StateFlow<List<Voucher>> = _vouchers.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val vouchersState: StateFlow<List<Voucher>> = combine(_selectedDate, _selectedSession) { date, session ->
+        Pair(date.toAsciiDigits().trim(), session.trim())
+    }.flatMapLatest { (date, session) ->
+        if (date.isBlank() || session.isBlank()) {
+            flowOf(emptyList())
+        } else {
+            repository.getVouchersForSessionFlow(date, session)
+        }
+    }.flowOn(Dispatchers.IO)
+     .stateIn(
+         scope = viewModelScope,
+         started = SharingStarted.WhileSubscribed(5000),
+         initialValue = emptyList()
+     )
 
     private val _layoffs = MutableStateFlow<List<LayoffRecord>>(emptyList())
     val layoffs: StateFlow<List<LayoffRecord>> = _layoffs.asStateFlow()
@@ -950,6 +969,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val updated = (_vouchers.value + newVoucher).sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
         _vouchers.value = updated
+        repository.insertVoucher(newVoucher)
         repository.saveVouchers(updated)
         refreshAvailableRounds()
 

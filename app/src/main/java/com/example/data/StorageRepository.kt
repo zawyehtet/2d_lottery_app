@@ -3,6 +3,8 @@ package com.example.data
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -492,10 +494,7 @@ class StorageRepository(context: Context) {
                         )
                     )
                 }
-                val sortedList = list.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
-                voucherDao.clearAllVouchersSync()
-                voucherDao.insertAllVouchersSync(sortedList.map { VoucherEntity.fromDomainVoucher(it) })
-                sortedList
+                list.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
             }
         } catch (e: Exception) {
             Log.e("StorageRepository", "Error loading vouchers", e)
@@ -503,8 +502,18 @@ class StorageRepository(context: Context) {
         }
     }
 
+    fun insertVoucher(voucher: Voucher): Long {
+        return try {
+            voucherDao.insertVoucherSync(VoucherEntity.fromDomainVoucher(voucher))
+        } catch (e: Exception) {
+            Log.e("StorageRepository", "Error inserting voucher atomically", e)
+            0L
+        }
+    }
+
     fun saveVouchers(vouchers: List<Voucher>) {
         try {
+            voucherDao.insertAllVouchersSync(vouchers.map { VoucherEntity.fromDomainVoucher(it) })
             val arr = JSONArray()
             vouchers.forEach { v ->
                 val obj = JSONObject().apply {
@@ -529,8 +538,6 @@ class StorageRepository(context: Context) {
                 arr.put(obj)
             }
             prefs.edit().putString(KEY_VOUCHERS, arr.toString()).apply()
-            voucherDao.clearAllVouchersSync()
-            voucherDao.insertAllVouchersSync(vouchers.map { VoucherEntity.fromDomainVoucher(it) })
         } catch (e: Exception) {
             Log.e("StorageRepository", "Error saving vouchers", e)
         }
@@ -1036,7 +1043,17 @@ class StorageRepository(context: Context) {
         updateSettledRecordById(recordId, updatedRecord)
 
     // Composite (date, roundNumber) reactive and synchronous Room DAO queries
-    fun getVouchersByDateAndRound(date: String, round: String): kotlinx.coroutines.flow.Flow<List<VoucherEntity>> =
+    fun getVouchersForSessionFlow(date: String, round: String): Flow<List<Voucher>> =
+        voucherDao.getVouchersForSessionFlow(date.toAsciiDigits(), round).map { list ->
+            list.map { it.toDomainVoucher() }
+        }
+
+    fun getAllVouchersFlow(): Flow<List<Voucher>> =
+        voucherDao.getAllVouchersFlow().map { list ->
+            list.map { it.toDomainVoucher() }
+        }
+
+    fun getVouchersByDateAndRound(date: String, round: String): Flow<List<VoucherEntity>> =
         voucherDao.getVouchersByDateAndRound(date.toAsciiDigits(), round)
 
     fun getRoundsByDate(date: String): kotlinx.coroutines.flow.Flow<List<String>> =

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -167,33 +168,43 @@ fun VouchersScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val selectedSession by viewModel.selectedSession.collectAsState()
-    val sessions by viewModel.sessions.collectAsState()
-    val selectedDate by viewModel.selectedDate.collectAsState()
-    val vouchers by viewModel.vouchers.collectAsState()
+    val selectedSession by viewModel.selectedSession.collectAsStateWithLifecycle()
+    val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    val sessionVouchers by viewModel.vouchersState.collectAsStateWithLifecycle()
+    val allVouchers by viewModel.vouchers.collectAsStateWithLifecycle()
 
-    val wins by viewModel.wins.collectAsState()
-    val settled by viewModel.settled.collectAsState()
-    val availableRounds = remember(sessions, selectedDate, vouchers, wins, settled) {
+    val wins by viewModel.wins.collectAsStateWithLifecycle()
+    val settled by viewModel.settled.collectAsStateWithLifecycle()
+    val availableRounds = remember(sessions, selectedDate, allVouchers, sessionVouchers, wins, settled) {
         viewModel.getAvailableRoundsForDate(selectedDate)
     }
     val cleanDate = selectedDate.toAsciiDigits().trim()
     val cleanSession = selectedSession.trim()
-    val hasVouchersForSession = vouchers.any { it.date.toAsciiDigits().trim() == cleanDate && it.session.trim() == cleanSession }
+
+    // Real-time reactive session vouchers from Room Flow; fallback to allVouchers if needed
+    val activeVouchers = remember(sessionVouchers, allVouchers, cleanDate, cleanSession) {
+        if (sessionVouchers.isNotEmpty()) {
+            sessionVouchers
+        } else {
+            allVouchers.filter {
+                it.date.toAsciiDigits().trim() == cleanDate && it.session.trim() == cleanSession
+            }
+        }
+    }
+    val hasVouchersForSession = activeVouchers.isNotEmpty()
     val hasRound = cleanSession.isNotBlank() && (sessions.any { it.name.trim() == cleanSession } || availableRounds.any { it.trim() == cleanSession } || hasVouchersForSession)
 
-    val filterAgent by viewModel.selectedVoucherFilterAgent.collectAsState()
+    val filterAgent by viewModel.selectedVoucherFilterAgent.collectAsStateWithLifecycle()
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
     // Filter and sort vouchers oldest first with robust date/session normalization
-    val filteredVouchers = remember(vouchers, cleanDate, cleanSession, filterAgent, searchQuery, hasRound, hasVouchersForSession) {
+    val filteredVouchers = remember(activeVouchers, filterAgent, searchQuery, hasRound, hasVouchersForSession) {
         if (!hasRound && !hasVouchersForSession) {
             emptyList()
         } else {
-            vouchers.filter { v ->
-                v.date.toAsciiDigits().trim() == cleanDate &&
-                    v.session.trim() == cleanSession &&
-                    (filterAgent == "ALL" || v.agent == filterAgent) &&
+            activeVouchers.filter { v ->
+                (filterAgent == "ALL" || v.agent == filterAgent) &&
                     (searchQuery.isBlank() ||
                         v.agent.contains(searchQuery, ignoreCase = true) ||
                         v.no.toString() == searchQuery.trim() ||
@@ -270,7 +281,7 @@ fun VouchersScreen(
                             .weight(1f),
                         contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)
                     ) {
-                        items(filteredVouchers, key = { "${it.id}_${it.no}_${it.items.size}_${it.totalAmount}" }) { voucher ->
+                        items(filteredVouchers, key = { it.id }) { voucher ->
                             VoucherCardItem(
                                 voucher = voucher,
                                 betsList = voucher.items,
