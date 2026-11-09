@@ -1,10 +1,15 @@
 package com.example.util
 
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.SoundPool
+import android.media.AudioManager
+import android.media.RingtoneManager
+import android.os.Build
 import android.os.SystemClock
-import com.example.R
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.view.SoundEffectConstants
+import android.view.View
 
 enum class SoundEffect {
     CLICK,
@@ -14,59 +19,87 @@ enum class SoundEffect {
 }
 
 /**
- * AppSoundManager: Low-latency audio feedback manager strictly simplified
- * to two feedback sounds:
- * - Tap Sound (ခလုတ်နှိပ်သံ)
- * - Complete Sound (ပြီးမြောက်သံ)
+ * AppSoundManager: Native Mobile Phone System Tap Sound and Complete Sound
+ * - Tap Sound (ဖုန်းမူလ ကလစ်သံ):
+ *   Native View.playSoundEffect(SoundEffectConstants.CLICK) or AudioManager.playSoundEffect(AudioManager.FX_KEY_CLICK)
+ * - Complete Sound (ပြီးမြောက်သည့် အသံ + အသံတုန်ခါမှု):
+ *   Native notification/success chime (RingtoneManager) + subtle 60ms haptic feedback
  */
 object AppSoundManager {
-    private var soundPool: SoundPool? = null
-    private var tapSoundId: Int = 0
-    private var completeSoundId: Int = 0
     @Volatile
     var isSoundEnabled: Boolean = true
 
+    private var appContext: Context? = null
+
     fun init(context: Context) {
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        soundPool = SoundPool.Builder()
-            .setMaxStreams(2)
-            .setAudioAttributes(audioAttributes)
-            .build()
-
-        tapSoundId = soundPool?.load(context, R.raw.sound_tap, 1) ?: 0
-        completeSoundId = soundPool?.load(context, R.raw.sound_complete, 1) ?: 0
+        appContext = context.applicationContext
     }
 
-    fun playTap() {
-        if (isSoundEnabled && tapSoundId != 0) {
-            soundPool?.play(tapSoundId, 1f, 1f, 0, 0, 1f)
+    // 1. Mobile Phone Tap Sound (ဖုန်းမူလ ကလစ်သံ)
+    fun playTap(view: View? = null, context: Context? = null, record: Boolean = true) {
+        if (!isSoundEnabled) return
+        if (record) {
+            SoundManager.recordTap()
         }
-        SoundManager.recordTap()
+
+        try {
+            // Preferred: View-based touch sound
+            if (view != null) {
+                view.playSoundEffect(SoundEffectConstants.CLICK)
+                return
+            }
+
+            // Fallback: AudioManager system key click
+            val targetContext = context ?: appContext
+            targetContext?.let { ctx ->
+                val audioManager = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+                audioManager?.playSoundEffect(AudioManager.FX_KEY_CLICK, 0.8f)
+            }
+        } catch (_: Exception) {
+        }
     }
 
-    fun playComplete() {
-        if (isSoundEnabled && completeSoundId != 0) {
-            soundPool?.play(completeSoundId, 1f, 1f, 0, 0, 1f)
-        }
+    // 2. Mobile Phone Complete Sound (ပြီးမြောက်သည့် အသံ + အသံတုန်ခါမှု)
+    fun playComplete(context: Context? = null) {
+        if (!isSoundEnabled) return
         SoundManager.recordComplete()
+
+        val targetContext = context ?: appContext ?: return
+        try {
+            // Play system notification chime
+            val notificationUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val ringtone = RingtoneManager.getRingtone(targetContext, notificationUri)
+            ringtone?.play()
+
+            // Subtle Haptic Feedback (ဖုန်းတုန်ခါမှု အနည်းငယ် ထည့်သွင်းခြင်း)
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = targetContext.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vibratorManager?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                targetContext.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
+
+            vibrator?.let {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    it.vibrate(VibrationEffect.createOneShot(60, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    it.vibrate(60)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun release() {
-        soundPool?.release()
-        soundPool = null
-        tapSoundId = 0
-        completeSoundId = 0
+        appContext = null
     }
 }
 
 object SoundManager {
-    private var soundPool: SoundPool? = null
-    private var clickSoundId: Int = 0
-    private var saveSoundId: Int = 0
-    private var isInitialized: Boolean = false
+    private var appContext: Context? = null
     private var lastClickTimestampMs: Long = 0L
 
     var isSoundEnabled: Boolean
@@ -106,48 +139,24 @@ object SoundManager {
 
     @Synchronized
     fun init(context: Context) {
-        val appContext = context.applicationContext
-        AppSoundManager.init(appContext)
-
-        if (isInitialized && soundPool != null) return
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-
-        val pool = SoundPool.Builder()
-            .setMaxStreams(2)
-            .setAudioAttributes(audioAttributes)
-            .build()
-
-        clickSoundId = pool.load(appContext, R.raw.sound_tap, 1)
-        saveSoundId = pool.load(appContext, R.raw.sound_complete, 1)
-
-        soundPool = pool
-        isInitialized = true
+        val app = context.applicationContext
+        appContext = app
+        AppSoundManager.init(app)
     }
 
-    fun playTap(): Boolean {
+    fun playTap(view: View? = null, context: Context? = null): Boolean {
         if (!isSoundEnabled) return false
-        recordTap()
-        val pool = soundPool
-        if (pool != null && clickSoundId != 0) {
-            pool.play(clickSoundId, 1.0f, 1.0f, 0, 0, 1.0f)
-        }
+        AppSoundManager.playTap(view, context ?: appContext, record = true)
         return true
     }
 
-    fun playComplete(): Boolean {
+    fun playComplete(context: Context? = null): Boolean {
         if (!isSoundEnabled) return false
-        recordComplete()
-        val pool = soundPool
-        if (pool != null && saveSoundId != 0) {
-            pool.play(saveSoundId, 1.0f, 1.0f, 0, 0, 1.0f)
-        }
+        AppSoundManager.playComplete(context ?: appContext)
         return true
     }
 
-    fun playClick(debounceMs: Long = 0L): Boolean {
+    fun playClick(debounceMs: Long = 0L, view: View? = null, context: Context? = null): Boolean {
         if (!isSoundEnabled) return false
         if (debounceMs > 0L) {
             val now = SystemClock.uptimeMillis()
@@ -156,39 +165,28 @@ object SoundManager {
             }
             lastClickTimestampMs = now
         }
-        return playTap()
+        return playTap(view, context)
     }
 
-    fun playSave(): Boolean = playComplete()
+    fun playSave(context: Context? = null): Boolean = playComplete(context)
 
-    // Simplified to Tap / Complete: play Tap sound while recording specific effect
-    fun playEdit(): Boolean {
+    fun playEdit(view: View? = null, context: Context? = null): Boolean {
         if (!isSoundEnabled) return false
         synchronized(_playedEffects) { _playedEffects.add(SoundEffect.EDIT) }
-        val pool = soundPool
-        if (pool != null && clickSoundId != 0) {
-            pool.play(clickSoundId, 1.0f, 1.0f, 0, 0, 1.0f)
-        }
+        AppSoundManager.playTap(view, context ?: appContext, record = false)
         return true
     }
 
-    fun playDelete(): Boolean {
+    fun playDelete(view: View? = null, context: Context? = null): Boolean {
         if (!isSoundEnabled) return false
         synchronized(_playedEffects) { _playedEffects.add(SoundEffect.DELETE) }
-        val pool = soundPool
-        if (pool != null && clickSoundId != 0) {
-            pool.play(clickSoundId, 1.0f, 1.0f, 0, 0, 1.0f)
-        }
+        AppSoundManager.playTap(view, context ?: appContext, record = false)
         return true
     }
 
     @Synchronized
     fun release() {
         AppSoundManager.release()
-        soundPool?.release()
-        soundPool = null
-        clickSoundId = 0
-        saveSoundId = 0
-        isInitialized = false
+        appContext = null
     }
 }
