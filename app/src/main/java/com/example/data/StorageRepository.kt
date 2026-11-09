@@ -33,6 +33,7 @@ class StorageRepository(context: Context) {
         private const val KEY_SETTLED = "lucky2d_settled"
         private const val KEY_DAILY_SETTLED = "lucky2d_daily_settled"
         private const val KEY_SETTINGS = "lucky2d_settings"
+        const val PREF_LAST_SELECTED_SESSION = "last_active_session"
 
         private val DEFAULT_ROUND_NAMES_12AM = setOf("12.AM", "12AM")
         private val DEFAULT_ROUND_NAMES_4PM = setOf("4.PM", "4PM")
@@ -220,6 +221,14 @@ class StorageRepository(context: Context) {
         } catch (e: Exception) {
             Log.e("StorageRepository", "Error saving sessions", e)
         }
+    }
+
+    fun getLastActiveSession(): String {
+        return prefs.getString(PREF_LAST_SELECTED_SESSION, "") ?: ""
+    }
+
+    fun saveLastActiveSession(session: String) {
+        prefs.edit().putString(PREF_LAST_SELECTED_SESSION, session.trim()).apply()
     }
 
     fun updateSessionById(sessionId: Long, updatedSession: Session): List<Session>? {

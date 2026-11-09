@@ -564,7 +564,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _dailySettlements.value = repository.loadAllDailySettlements()
 
         val histRoundsForDate = getHistoricalRoundsForDate(activeDate)
-        if (loadedSessions.isNotEmpty()) {
+        val savedSession = repository.getLastActiveSession()
+        if (savedSession.isNotEmpty() && (loadedSessions.any { it.name == savedSession } || savedSession in histRoundsForDate)) {
+            _selectedSession.value = savedSession
+        } else if (loadedSessions.isNotEmpty()) {
             if (_selectedSession.value.isEmpty() ||
                 (!loadedSessions.any { it.name == _selectedSession.value } && _selectedSession.value !in histRoundsForDate)
             ) {
@@ -617,6 +620,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             customRoundsByDate.getOrPut(_selectedDate.value) { mutableSetOf() }.add(trimmed)
             _selectedSession.value = trimmed
+            repository.saveLastActiveSession(trimmed)
         }
         refreshActiveAgentsForCurrentDraw(resetDraftOnSessionChange = changed)
         refreshAvailableRounds()
@@ -633,8 +637,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val dateSessions = repository.loadSessionsForDate(cleanDate)
         _sessions.value = dateSessions
         val histRounds = getHistoricalRoundsForDate(cleanDate)
+        val savedSession = repository.getLastActiveSession()
 
-        if (dateSessions.isNotEmpty()) {
+        if (savedSession.isNotEmpty() && (dateSessions.any { it.name == savedSession } || savedSession in histRounds)) {
+            _selectedSession.value = savedSession
+        } else if (dateSessions.isNotEmpty()) {
             if (_selectedSession.value.isEmpty() || !dateSessions.any { it.name == _selectedSession.value }) {
                 _selectedSession.value = dateSessions.first().name
             }
@@ -665,13 +672,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedVoucherFilterAgent = MutableStateFlow("ALL")
     val selectedVoucherFilterAgent: StateFlow<String> = _selectedVoucherFilterAgent.asStateFlow()
 
+    private val _selectedVoucherFilterAgentId = MutableStateFlow<Int?>(null)
+    val selectedVoucherFilterAgentId: StateFlow<Int?> = _selectedVoucherFilterAgentId.asStateFlow()
+
     fun setVoucherFilterAgent(agentName: String) {
         _selectedVoucherFilterAgent.value = agentName
+        if (agentName == "ALL") {
+            _selectedVoucherFilterAgentId.value = null
+        }
     }
 
     fun openAgentVouchers(agentName: String) {
         _selectedVoucherFilterAgent.value = agentName
+        _selectedVoucherFilterAgentId.value = _agents.value.firstOrNull { it.name == agentName }?.id
         navigateTo(Screen.VOUCHERS)
+    }
+
+    fun openAgentVouchers(agentId: Int?, agentName: String?) {
+        _selectedVoucherFilterAgentId.value = agentId
+        _selectedVoucherFilterAgent.value = agentName ?: (_agents.value.firstOrNull { it.id == agentId }?.name ?: "ALL")
+        navigateTo(Screen.VOUCHERS)
+    }
+
+    fun clearVoucherFilter() {
+        _selectedVoucherFilterAgent.value = "ALL"
+        _selectedVoucherFilterAgentId.value = null
     }
 
     fun getBackStack(): List<Screen> = screenHistory.toList()
@@ -2023,7 +2048,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             profitLoss = calc.profitLoss,
             timestamp = timeFormatter.format(Date())
         )
-        val updated = listOf(record) + _settled.value
+        val updated = (_settled.value + record).sortedWith(compareBy<SettledRecord> { it.id })
         manuallyEditedRecordIds.add(record.id)
         _settled.value = updated
         repository.saveSettled(updated)
@@ -2091,7 +2116,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 timestamp = timeFormatter.format(Date())
             )
             manuallyEditedRecordIds.add(newRec.id)
-            val updated = listOf(newRec) + _settled.value
+            val updated = (_settled.value + newRec).sortedWith(compareBy<SettledRecord> { it.id })
             _settled.value = updated
             repository.saveSettled(updated)
         }

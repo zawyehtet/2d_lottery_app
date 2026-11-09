@@ -16,10 +16,13 @@ interface DailySettlementDao {
     @Query("SELECT * FROM daily_settlements WHERE date = :date LIMIT 1")
     fun getDailySettlementByDateSync(date: String): DailySettlementEntity?
 
-    @Query("SELECT * FROM daily_settlements ORDER BY date DESC")
+    @Query("SELECT * FROM daily_settlements ORDER BY date ASC")
     fun getAllDailySettlements(): Flow<List<DailySettlementEntity>>
 
-    @Query("SELECT * FROM daily_settlements ORDER BY date DESC")
+    @Query("SELECT * FROM daily_settlements ORDER BY date ASC")
+    fun getAllDailySettlementsOldestFirst(): Flow<List<DailySettlementEntity>>
+
+    @Query("SELECT * FROM daily_settlements ORDER BY date ASC")
     fun getAllDailySettlementsSync(): List<DailySettlementEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

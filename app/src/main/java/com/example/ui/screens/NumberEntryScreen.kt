@@ -538,7 +538,7 @@ fun NumberEntryScreen(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
-                        .clickable { viewModel.navigateTo(Screen.VOUCHERS) }
+                        .clickable { viewModel.openAgentVouchers(currentAgent?.id, currentAgent?.name) }
                         .padding(4.dp)
                 )
             }

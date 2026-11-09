@@ -679,6 +679,21 @@ fun SessionPill(
         (configured + hist + active).distinct()
     }
 
+    var pendingSessionToSwitch by rememberSaveable { mutableStateOf<String?>(null) }
+
+    if (pendingSessionToSwitch != null) {
+        SwitchSessionConfirmDialog(
+            targetSessionName = pendingSessionToSwitch!!,
+            onConfirm = {
+                onSessionSelected(pendingSessionToSwitch!!)
+                pendingSessionToSwitch = null
+            },
+            onDismiss = {
+                pendingSessionToSwitch = null
+            }
+        )
+    }
+
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
@@ -736,14 +751,58 @@ fun SessionPill(
                             )
                         },
                         onClick = {
-                            onSessionSelected(roundName)
                             expanded = false
+                            if (roundName != selectedSession && selectedSession.isNotBlank()) {
+                                pendingSessionToSwitch = roundName
+                            } else {
+                                onSessionSelected(roundName)
+                            }
                         }
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+fun SwitchSessionConfirmDialog(
+    targetSessionName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("အကြိမ်ရေ ရွေးချယ်မှု", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Text(
+                "အကြိမ်ရေ $targetSessionName သို့ ပြောင်းလဲရန် သေချာပါသလား?",
+                fontSize = 14.sp,
+                color = Color(0xFF334155)
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0C4E3E)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(40.dp)
+            ) {
+                Text("သေချာပါသည်", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(40.dp)
+            ) {
+                Text("မလုပ်တော့ပါ", fontSize = 13.sp)
+            }
+        }
+    )
 }
 
 @Composable

@@ -9,6 +9,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -195,16 +196,34 @@ fun VouchersScreen(
     val hasVouchersForSession = activeVouchers.isNotEmpty()
     val hasRound = cleanSession.isNotBlank() && (sessions.any { it.name.trim() == cleanSession } || availableRounds.any { it.trim() == cleanSession } || hasVouchersForSession)
 
-    val filterAgent by viewModel.selectedVoucherFilterAgent.collectAsStateWithLifecycle()
+    val filterAgentName by viewModel.selectedVoucherFilterAgent.collectAsStateWithLifecycle()
+    val filterAgentId by viewModel.selectedVoucherFilterAgentId.collectAsStateWithLifecycle()
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
+    val isFilteredByAgent = filterAgentId != null || (filterAgentName != "ALL" && filterAgentName.isNotBlank())
+    val headerTitle = if (isFilteredByAgent) {
+        "$filterAgentName ၏ ဘောင်ချာများ"
+    } else {
+        stringResource(R.string.vouchers_screen_title)
+    }
+
+    BackHandler {
+        viewModel.clearVoucherFilter()
+        viewModel.goBack()
+    }
+
     // Filter and sort vouchers oldest first with robust date/session normalization
-    val filteredVouchers = remember(activeVouchers, filterAgent, searchQuery, hasRound, hasVouchersForSession) {
+    val filteredVouchers = remember(activeVouchers, filterAgentName, filterAgentId, searchQuery, hasRound, hasVouchersForSession) {
         if (!hasRound && !hasVouchersForSession) {
             emptyList()
         } else {
             activeVouchers.filter { v ->
-                (filterAgent == "ALL" || v.agent == filterAgent) &&
+                val matchesAgent = when {
+                    filterAgentId != null -> v.agentId == filterAgentId || (filterAgentName != "ALL" && v.agent == filterAgentName)
+                    filterAgentName != "ALL" -> v.agent == filterAgentName
+                    else -> true
+                }
+                matchesAgent &&
                     (searchQuery.isBlank() ||
                         v.agent.contains(searchQuery, ignoreCase = true) ||
                         v.no.toString() == searchQuery.trim() ||
@@ -221,16 +240,12 @@ fun VouchersScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             AppHeader(
-                title = if (filterAgent == "ALL") {
-                    stringResource(R.string.vouchers_screen_title)
-                } else {
-                    "${stringResource(R.string.vouchers_screen_title)} ($filterAgent)"
-                },
+                title = headerTitle,
                 selectedSession = selectedSession,
                 sessions = sessions,
                 onSessionSelected = { viewModel.setSession(it) },
                 onBack = {
-                    viewModel.setVoucherFilterAgent("ALL")
+                    viewModel.clearVoucherFilter()
                     viewModel.goBack()
                 },
                 selectedDate = selectedDate,

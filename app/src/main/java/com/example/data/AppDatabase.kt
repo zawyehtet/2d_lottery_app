@@ -306,6 +306,9 @@ interface SettlementDao {
     @Query("SELECT * FROM settlements ORDER BY id ASC")
     fun getAllSettlementsSync(): List<SettlementEntity>
 
+    @Query("SELECT * FROM settlements ORDER BY id ASC")
+    fun getAllSettlementsOldestFirst(): Flow<List<SettlementEntity>>
+
     @Query("SELECT DISTINCT roundNumber FROM settlements WHERE date = :date")
     fun getRoundsByDateSync(date: String): List<String>
 

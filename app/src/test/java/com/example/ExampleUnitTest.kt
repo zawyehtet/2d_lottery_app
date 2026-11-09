@@ -728,6 +728,65 @@ class ExampleUnitTest {
         assertEquals(4, betsWithInvalid.size) // 12, 21, 33, 33
         assertEquals(listOf("999", "abc"), invalidFound)
     }
+
+    @Test
+    fun testExtended2DRSyntaxParsing() {
+        // 1) 12R1000
+        val (b1, inv1) = PatternAlgorithms.parseFastBet2DExtended("12R1000")
+        assertTrue(inv1.isEmpty())
+        assertEquals(2, b1.size)
+        assertTrue(b1.any { it.number == "12" && it.amount == 1000L })
+        assertTrue(b1.any { it.number == "21" && it.amount == 1000L })
+
+        // 2) 12R=1000
+        val (b2, inv2) = PatternAlgorithms.parseFastBet2DExtended("12R=1000")
+        assertTrue(inv2.isEmpty())
+        assertEquals(2, b2.size)
+        assertTrue(b2.any { it.number == "12" && it.amount == 1000L })
+        assertTrue(b2.any { it.number == "21" && it.amount == 1000L })
+
+        // 3) 12=R1000
+        val (b3, inv3) = PatternAlgorithms.parseFastBet2DExtended("12=R1000")
+        assertTrue(inv3.isEmpty())
+        assertEquals(2, b3.size)
+        assertTrue(b3.any { it.number == "12" && it.amount == 1000L })
+        assertTrue(b3.any { it.number == "21" && it.amount == 1000L })
+
+        // 4) 12=1000R
+        val (b4, inv4) = PatternAlgorithms.parseFastBet2DExtended("12=1000R")
+        assertTrue(inv4.isEmpty())
+        assertEquals(2, b4.size)
+        assertTrue(b4.any { it.number == "12" && it.amount == 1000L })
+        assertTrue(b4.any { it.number == "21" && it.amount == 1000L })
+
+        // 5) Multiple numbers dot-separated: 12.34.56R1000
+        val (b5, inv5) = PatternAlgorithms.parseFastBet2DExtended("12.34.56R1000")
+        assertTrue(inv5.isEmpty())
+        assertEquals(6, b5.size)
+
+        // 6) Multiple numbers with R=: 12.34R=1000
+        val (b6, inv6) = PatternAlgorithms.parseFastBet2DExtended("12.34R=1000")
+        assertTrue(inv6.isEmpty())
+        assertEquals(4, b6.size)
+
+        // 7) Double numbers with R: 33R1000 & 33R=1000 (added TWICE)
+        val (b7, inv7) = PatternAlgorithms.parseFastBet2DExtended("33R1000")
+        assertTrue(inv7.isEmpty())
+        assertEquals(2, b7.size)
+        assertEquals(2, b7.count { it.number == "33" && it.amount == 1000L })
+
+        val (b8, inv8) = PatternAlgorithms.parseFastBet2DExtended("33R=1000")
+        assertTrue(inv8.isEmpty())
+        assertEquals(2, b8.size)
+        assertEquals(2, b8.count { it.number == "33" && it.amount == 1000L })
+
+        // 8) parseQuickEntryMode1 with extended R syntax
+        val q1 = PatternAlgorithms.parseQuickEntryMode1("12R=1000\n12=R1000\n12=1000R\n33R=1000", emptySet())
+        assertTrue(q1.invalidTokens.isEmpty())
+        assertEquals(8, q1.items.size)
+        assertEquals(2, q1.items.count { it.n == "33" && it.a == 1000L })
+    }
 }
+
 
 

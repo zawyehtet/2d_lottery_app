@@ -12,6 +12,7 @@ import com.example.util.SoundEffect
 import com.example.util.SoundManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -940,5 +941,76 @@ class ExampleRobolectricTest {
         assertEquals(1, dbVouchers.size)
         assertEquals(v.id, dbVouchers.first().id)
     }
+
+    @Test
+    fun `agent voucher isolation and session persistence and oldest-first settlements and sound manager work as expected`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val repo = StorageRepository(app)
+        val viewModel = MainViewModel(app)
+        viewModel.resetAllData()
+
+        viewModel.setDate("2026-11-09")
+        viewModel.addSession("8AM", 10.0, 80.0)
+        viewModel.addSession("8PM", 10.0, 80.0)
+
+        // Module 2: Session selection persistence
+        viewModel.setSession("8PM")
+        assertEquals("8PM", repo.getLastActiveSession())
+
+        // Re-creating viewModel (simulating app re-open) restores "8PM" instead of defaulting to first session "8AM"
+        val reopenedViewModel = MainViewModel(app)
+        assertEquals("8PM", reopenedViewModel.selectedSession.value)
+
+        // Module 1: Scoped voucher history from betting screen
+        viewModel.addAgent("Agent A", 10.0, 80.0)
+        viewModel.addAgent("Agent B", 10.0, 80.0)
+        val agentA = viewModel.agents.value.first { it.name == "Agent A" }
+        val agentB = viewModel.agents.value.first { it.name == "Agent B" }
+
+        // Bet for Agent A
+        viewModel.setEntryAgent(agentA)
+        viewModel.addEntryItems(listOf(BetItem("11", 1000L)))
+        viewModel.commitCurrentVoucher()
+
+        // Bet for Agent B
+        viewModel.setEntryAgent(agentB)
+        viewModel.addEntryItems(listOf(BetItem("22", 2000L)))
+        viewModel.commitCurrentVoucher()
+
+        assertEquals(2, viewModel.vouchers.value.size)
+
+        // Isolate to Agent A
+        viewModel.openAgentVouchers(agentA.id, agentA.name)
+        assertEquals("Agent A", viewModel.selectedVoucherFilterAgent.value)
+        assertEquals(agentA.id, viewModel.selectedVoucherFilterAgentId.value)
+        assertEquals(Screen.VOUCHERS, viewModel.currentScreen.value)
+
+        // Clear filter
+        viewModel.clearVoucherFilter()
+        assertEquals("ALL", viewModel.selectedVoucherFilterAgent.value)
+        assertNull(viewModel.selectedVoucherFilterAgentId.value)
+
+        // Module 3: Settlements list order (Oldest-First)
+        viewModel.setWinningNumber("11")
+        viewModel.lockAndSaveBrakeSettlement()
+
+        viewModel.setSession("8AM")
+        viewModel.setWinningNumber("22")
+        viewModel.lockAndSaveBrakeSettlement()
+
+        val settledList = viewModel.settled.value
+        assertEquals(2, settledList.size)
+        // Verify strictly oldest-first (id ascending)
+        assertTrue(settledList[0].id <= settledList[1].id)
+
+        // Module 6: SoundManager & AppSoundManager tap and complete
+        com.example.util.AppSoundManager.init(app)
+        com.example.util.AppSoundManager.isSoundEnabled = true
+        com.example.util.SoundManager.clearRecordedEffects()
+        com.example.util.AppSoundManager.playTap()
+        com.example.util.AppSoundManager.playComplete()
+        assertEquals(2, com.example.util.SoundManager.playedEffects.size)
+    }
 }
+
 

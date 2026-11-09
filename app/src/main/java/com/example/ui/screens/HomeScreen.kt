@@ -41,6 +41,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.Screen
 import com.example.ui.components.AppDatePickerModal
 import com.example.ui.components.CloverLogo
+import com.example.ui.components.SwitchSessionConfirmDialog
 import com.example.ui.theme.*
 
 @Composable
@@ -53,6 +54,20 @@ fun HomeScreen(
     val selectedDate by viewModel.selectedDate.collectAsState()
     var showSessionMenu by rememberSaveable { mutableStateOf(false) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var pendingSessionToSwitch by rememberSaveable { mutableStateOf<String?>(null) }
+
+    if (pendingSessionToSwitch != null) {
+        SwitchSessionConfirmDialog(
+            targetSessionName = pendingSessionToSwitch!!,
+            onConfirm = {
+                viewModel.setSession(pendingSessionToSwitch!!)
+                pendingSessionToSwitch = null
+            },
+            onDismiss = {
+                pendingSessionToSwitch = null
+            }
+        )
+    }
 
     val noRoundsText = stringResource(R.string.no_rounds_yet)
 
@@ -200,7 +215,10 @@ fun HomeScreen(
                         label = "ဘောင်ချာ",
                         testTag = "home_vouchers_button",
                         modifier = Modifier.weight(1f),
-                        onClick = { viewModel.navigateTo(Screen.VOUCHERS) }
+                        onClick = {
+                            viewModel.clearVoucherFilter()
+                            viewModel.navigateTo(Screen.VOUCHERS)
+                        }
                     )
 
                     HomeGridCard(
@@ -339,8 +357,12 @@ fun HomeScreen(
                                         )
                                     },
                                     onClick = {
-                                        viewModel.setSession(roundName)
                                         showSessionMenu = false
+                                        if (roundName != selectedSession && selectedSession.isNotBlank()) {
+                                            pendingSessionToSwitch = roundName
+                                        } else {
+                                            viewModel.setSession(roundName)
+                                        }
                                     }
                                 )
                             }

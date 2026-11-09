@@ -275,8 +275,12 @@ object PatternAlgorithms {
         // Split into entry tokens while supporting space/comma/dot separation of numbers before '=' or 'R'
         // First normalize spaces/commas between 2-digit numbers on the same line before '=' or 'R' into dots (e.g. "01 78=500" or "01,78=500" -> "01.78=500")
         val normalizedLines = cleanedText.lines().map { line ->
-            line.trim().replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
+            line.trim()
+                .replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
                 .replace(Regex("\\s*([=rR/])\\s*"), "$1")
+                .replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
+                .replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
+                .replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
         }
         val tokens = normalizedLines
             .flatMap { it.split(Regex("[\\s;|]+|,(?=\\s|$|[0-9]{1,2}[.=rR]|[0-9][abtwABTW]|[pnsxPNSX][0-9])")) }
@@ -428,8 +432,12 @@ object PatternAlgorithms {
         }
 
         val normalizedLines = cleanedText.lines().map { line ->
-            line.trim().replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
+            line.trim()
+                .replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
                 .replace(Regex("\\s*([=rR/])\\s*"), "$1")
+                .replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
+                .replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
+                .replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
         }
         val tokens = normalizedLines
             .flatMap { it.split(Regex("[\\s;|]+|,(?=\\s|$|[0-9]{1,2}[.=rR]|[0-9][abtwABTW]|[pnsxPNSX][0-9])")) }
@@ -558,8 +566,12 @@ object PatternAlgorithms {
         if (cleaned.isEmpty()) return BetAmountValidationResult.Empty
 
         val normalizedLines = cleaned.lines().map { line ->
-            line.trim().replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
+            line.trim()
+                .replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
                 .replace(Regex("\\s*([=rR/])\\s*"), "$1")
+                .replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
+                .replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
+                .replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
         }
         val tokens = normalizedLines
             .flatMap { it.split(Regex("[\\s;|]+|,(?=\\s|$|[0-9]{1,2}[.=rR]|[0-9][abtwABTW]|[0-9]{2,9}[kK]|[pnsxPNSX][0-9])")) }
@@ -673,6 +685,83 @@ object PatternAlgorithms {
 
         return emptyList()
     }
+
+    fun parseFastBet2DExtended(rawText: String): Pair<List<ParsedBet2D>, List<String>> =
+        com.example.logic.parseFastBet2DExtended(rawText)
 }
 
 fun parseBetInput(input: String): List<BetItem> = PatternAlgorithms.parseBetInput(input)
+
+data class ParsedBet2D(val number: String, val amount: Long)
+
+fun parseFastBet2DExtended(rawText: String): Pair<List<ParsedBet2D>, List<String>> {
+    val resultBets = mutableListOf<ParsedBet2D>()
+    val invalidTokens = mutableListOf<String>()
+    val lines = rawText.lines().map { it.trim() }.filter { it.isNotBlank() }
+
+    for (line in lines) {
+        val isR = line.contains("R", ignoreCase = true)
+
+        // Matches pattern: 12R1000 or 12.34.56R1000
+        val rDirectRegex = Regex("^([0-9.,\\s]+)R([0-9]+)$", RegexOption.IGNORE_CASE)
+        val rMatch = rDirectRegex.find(line.trim())
+
+        if (rMatch != null) {
+            val numbersPart = rMatch.groupValues[1]
+            val amount = rMatch.groupValues[2].toLongOrNull()
+            if (amount != null && amount > 0) {
+                process2DTokens(numbersPart, amount, true, resultBets, invalidTokens)
+                continue
+            }
+        }
+
+        // Matches patterns with '=': 12R=1000, 12=R1000, 12=1000R, 12=1000
+        val cleanLine = line.replace("R", "", ignoreCase = true)
+        val parts = cleanLine.split(Regex("[=/]")).map { it.trim() }.filter { it.isNotEmpty() }
+
+        if (parts.size < 2) {
+            invalidTokens.add(line)
+            continue
+        }
+
+        val numbersPart = parts[0]
+        val amount = parts[1].toLongOrNull()
+        if (amount == null || amount <= 0) {
+            invalidTokens.add(line)
+            continue
+        }
+
+        process2DTokens(numbersPart, amount, isR, resultBets, invalidTokens)
+    }
+
+    return Pair(resultBets, invalidTokens)
+}
+
+private fun process2DTokens(
+    numbersPart: String,
+    amount: Long,
+    isR: Boolean,
+    resultBets: MutableList<ParsedBet2D>,
+    invalidTokens: MutableList<String>
+) {
+    val tokens = numbersPart.split(".", ",", " ", "/", "-").map { it.trim() }.filter { it.isNotEmpty() }
+    for (token in tokens) {
+        if (token.length == 2 && token.all { it.isDigit() }) {
+            if (isR) {
+                val d1 = token[0]
+                val d2 = token[1]
+                if (d1 == d2) {
+                    resultBets.add(ParsedBet2D(token, amount))
+                    resultBets.add(ParsedBet2D(token, amount))
+                } else {
+                    resultBets.add(ParsedBet2D("$d1$d2", amount))
+                    resultBets.add(ParsedBet2D("$d2$d1", amount))
+                }
+            } else {
+                resultBets.add(ParsedBet2D(token, amount))
+            }
+        } else {
+            invalidTokens.add(token)
+        }
+    }
+}
