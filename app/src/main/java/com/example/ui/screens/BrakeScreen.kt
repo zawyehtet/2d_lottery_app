@@ -107,20 +107,23 @@ fun BrakeScreen(
     }
 
     // Left Column: "လက်ခံကွက်" reflects net kept bets after deducting passed bets (supports signed/negative balances)
-    val leftRetainedList = remember(summaries, activeBrake, isExplicitZeroBrake) {
+    // Module 2: Include all 0-amount (zero-sales) numbers in "လက်ခံကွက်" (Full 00 to 99 range)
+    val leftRetainedList = remember(vouchers, layoffs, selectedDate, selectedSession, activeBrake, isExplicitZeroBrake) {
+        val full100 = viewModel.getAll100Numbers()
         if (isExplicitZeroBrake) {
-            summaries.mapNotNull { summary ->
-                if (summary.netAmount < 0L) Triple(summary.n, summary.entryCount, summary.netAmount) else null
+            full100.map { summary ->
+                val retained = if (summary.netAmount < 0L) summary.netAmount else 0L
+                Triple(summary.n, summary.entryCount, retained)
             }
         } else if (activeBrake > 0L) {
-            summaries.mapNotNull { summary ->
+            full100.map { summary ->
                 val retained = minOf(summary.netAmount, activeBrake)
-                if (retained != 0L) Triple(summary.n, summary.entryCount, retained) else null
+                Triple(summary.n, summary.entryCount, retained)
             }
         } else {
             // When brake limit is not configured, dealer keeps remaining net bets after passed deductions
-            summaries.mapNotNull { summary ->
-                if (summary.netAmount != 0L) Triple(summary.n, summary.entryCount, summary.netAmount) else null
+            full100.map { summary ->
+                Triple(summary.n, summary.entryCount, summary.netAmount)
             }
         }
     }

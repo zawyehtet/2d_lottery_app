@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +60,7 @@ import com.example.ui.components.fmt
 import com.example.ui.components.soundOnInputFocus
 import com.example.ui.theme.*
 import com.example.util.AppSoundManager
+import com.example.util.AppSoundManager2D
 import kotlinx.coroutines.delay
 
 @Composable
@@ -1360,7 +1362,7 @@ fun BetSubmissionConfirmDialog(
                 val dialogContext = LocalContext.current
                 Button(
                     onClick = {
-                        AppSoundManager.playComplete(dialogContext)
+                        AppSoundManager2D.playComplete(dialogContext)
                         onConfirm()
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -1454,6 +1456,7 @@ fun KeypadSmallButton(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val view = LocalView.current
     Box(
         modifier = Modifier
             .width(68.dp)
@@ -1461,7 +1464,7 @@ fun KeypadSmallButton(
             .clip(RoundedCornerShape(8.dp))
             .background(if (isSelected) LuckySuccess else LuckyHeader)
             .clickable(onClick = {
-                AppSoundManager.playTap()
+                AppSoundManager2D.playTouchClick(view = view)
                 onClick()
             })
             .padding(horizontal = 4.dp),
@@ -1490,6 +1493,7 @@ fun KeypadBtn(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val view = LocalView.current
     Box(
         modifier = modifier
             .height(42.dp)
@@ -1497,7 +1501,7 @@ fun KeypadBtn(
             .background(bgColor)
             .border(0.5.dp, LuckyBorder, RoundedCornerShape(10.dp))
             .clickable(enabled = enabled, onClick = {
-                AppSoundManager.playTap()
+                AppSoundManager2D.playTouchClick(view = view)
                 onClick()
             })
             .padding(horizontal = 2.dp),

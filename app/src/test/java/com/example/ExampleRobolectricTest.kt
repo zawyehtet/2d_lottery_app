@@ -1003,13 +1003,30 @@ class ExampleRobolectricTest {
         // Verify strictly oldest-first (id ascending)
         assertTrue(settledList[0].id <= settledList[1].id)
 
-        // Module 6: SoundManager & AppSoundManager tap and complete
+        // SoundManager, AppSoundManager & AppSoundManager2D tap and complete
         com.example.util.AppSoundManager.init(app)
         com.example.util.AppSoundManager.isSoundEnabled = true
         com.example.util.SoundManager.clearRecordedEffects()
         com.example.util.AppSoundManager.playTap()
         com.example.util.AppSoundManager.playComplete()
         assertEquals(2, com.example.util.SoundManager.playedEffects.size)
+
+        com.example.util.AppSoundManager2D.playTouchClick(context = app)
+        com.example.util.AppSoundManager2D.playComplete(context = app)
+
+        // Module 2: generateFull2DLedger produces full 100 range from 00 to 99 with zero-sales included
+        val salesMap = mapOf("05" to 5000L, "99" to 2000L)
+        val fullLedger = com.example.data.generateFull2DLedger(salesMap)
+        assertEquals(100, fullLedger.size)
+        assertEquals("00", fullLedger.first().number)
+        assertEquals(0L, fullLedger.first().amount)
+        assertEquals(5000L, fullLedger.first { it.number == "05" }.amount)
+        assertEquals("99", fullLedger.last().number)
+        assertEquals(2000L, fullLedger.last().amount)
+
+        // Module 4: Newest-first voucher order
+        val allVouchersDesc = viewModel.vouchers.value.sortedWith(compareByDescending<com.example.data.Voucher> { it.no }.thenByDescending { it.id })
+        assertTrue(allVouchersDesc.first().no >= allVouchersDesc.last().no)
     }
 }
 

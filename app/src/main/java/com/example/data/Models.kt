@@ -125,3 +125,16 @@ fun String.toAsciiDigits(): String {
     }.joinToString("")
 }
 
+data class NumberSales2D(val number: String, val amount: Long)
+
+fun generateFull2DLedger(currentSalesMap: Map<String, Long>): List<NumberSales2D> {
+    val fullList = mutableListOf<NumberSales2D>()
+    for (i in 0..99) {
+        val numStr = String.format(java.util.Locale.US, "%02d", i)
+        val amount = currentSalesMap[numStr] ?: 0L
+        fullList.add(NumberSales2D(number = numStr, amount = amount))
+    }
+    return fullList
+}
+
+

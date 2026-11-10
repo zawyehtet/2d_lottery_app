@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,6 +18,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -771,39 +774,122 @@ fun SwitchSessionConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("အကြိမ်ရေ ရွေးချယ်မှု", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        },
-        text = {
-            Text(
-                "အကြိမ်ရေ $targetSessionName သို့ ပြောင်းလဲရန် သေချာပါသလား?",
-                fontSize = 14.sp,
-                color = Color(0xFF334155)
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0C4E3E)),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(40.dp)
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .widthIn(max = 330.dp)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("သေချာပါသည်", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(40.dp)
-            ) {
-                Text("မလုပ်တော့ပါ", fontSize = 13.sp)
+                // Title
+                Text(
+                    text = "အကြိမ်ရေ ရွေးချယ်မှု",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0C4E3E)
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Highlighted Session Badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFE8F5E9),
+                    border = BorderStroke(1.dp, Color(0xFFC8E6C9)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = targetSessionName,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0C4E3E),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Confirmation Message
+                Text(
+                    text = "အထက်ပါ အကြိမ်ရေသို့ ပြောင်းလဲရန် သေချာပါသလား?",
+                    fontSize = 14.sp,
+                    color = Color(0xFF475569),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                // Action Buttons Row (Left: မလုပ်တော့ပါ | Right: သေချာပါသည်)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // LEFT: မလုပ်တော့ပါ
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF64748B)
+                        ),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = "မလုပ်တော့ပါ",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // RIGHT: သေချာပါသည်
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF0C4E3E),
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = "သေချာပါသည်",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
-    )
+    }
 }
+
+@Composable
+fun SwitchSessionConfirmDialog2D(
+    targetSessionName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) = SwitchSessionConfirmDialog(targetSessionName, onConfirm, onDismiss)
 
 @Composable
 fun RoundRequiredHelperBanner(

@@ -212,7 +212,7 @@ fun VouchersScreen(
         viewModel.goBack()
     }
 
-    // Filter and sort vouchers oldest first with robust date/session normalization
+    // Filter and sort vouchers strictly in NEWEST-FIRST order (voucherNo DESC, id DESC)
     val filteredVouchers = remember(activeVouchers, filterAgentName, filterAgentId, searchQuery, hasRound, hasVouchersForSession) {
         if (!hasRound && !hasVouchersForSession) {
             emptyList()
@@ -228,7 +228,7 @@ fun VouchersScreen(
                         v.agent.contains(searchQuery, ignoreCase = true) ||
                         v.no.toString() == searchQuery.trim() ||
                         v.items.any { it.n == searchQuery.trim() })
-            }.sortedWith(compareBy<Voucher> { it.no }.thenBy { it.id })
+            }.sortedWith(compareByDescending<Voucher> { it.no }.thenByDescending { it.id })
         }
     }
 
@@ -901,3 +901,19 @@ fun VoucherHistoryTableScreen2D(
         }
     }
 }
+
+@Composable
+fun VoucherCardItem2D(
+    voucher: Voucher,
+    modifier: Modifier = Modifier
+) {
+    VoucherCardItem(
+        voucher = voucher,
+        betsList = voucher.items,
+        onUpdateBet = { _, _, _ -> },
+        onDeleteSingleBet = { _ -> },
+        onDeleteEntireVoucher = { _ -> },
+        onCopyVoucher = {}
+    )
+}
+
