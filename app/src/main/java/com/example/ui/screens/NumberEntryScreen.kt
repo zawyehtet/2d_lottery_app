@@ -58,6 +58,7 @@ import com.example.ui.components.entryCombinedClickable
 import com.example.ui.components.fmt
 import com.example.ui.components.soundOnInputFocus
 import com.example.ui.theme.*
+import com.example.util.AppSoundManager
 import kotlinx.coroutines.delay
 
 @Composable
@@ -1356,8 +1357,12 @@ fun BetSubmissionConfirmDialog(
                     )
                 }
 
+                val dialogContext = LocalContext.current
                 Button(
-                    onClick = onConfirm,
+                    onClick = {
+                        AppSoundManager.playComplete(dialogContext)
+                        onConfirm()
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = confirmGreenColor,
                         contentColor = Color.White
@@ -1455,7 +1460,10 @@ fun KeypadSmallButton(
             .height(36.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(if (isSelected) LuckySuccess else LuckyHeader)
-            .clickable(onClick = onClick)
+            .clickable(onClick = {
+                AppSoundManager.playTap()
+                onClick()
+            })
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -1488,7 +1496,10 @@ fun KeypadBtn(
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .border(0.5.dp, LuckyBorder, RoundedCornerShape(10.dp))
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled, onClick = {
+                AppSoundManager.playTap()
+                onClick()
+            })
             .padding(horizontal = 2.dp),
         contentAlignment = Alignment.Center
     ) {

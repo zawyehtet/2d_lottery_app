@@ -565,7 +565,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val histRoundsForDate = getHistoricalRoundsForDate(activeDate)
         val savedSession = repository.getLastActiveSession()
-        if (savedSession.isNotEmpty() && (loadedSessions.any { it.name == savedSession } || savedSession in histRoundsForDate)) {
+        val allKnownSessions = repository.loadSessions()
+        if (savedSession.isNotEmpty() && (loadedSessions.any { it.name == savedSession } || savedSession in histRoundsForDate || allKnownSessions.any { it.name == savedSession } || loadedSessions.isEmpty())) {
             _selectedSession.value = savedSession
         } else if (loadedSessions.isNotEmpty()) {
             if (_selectedSession.value.isEmpty() ||
@@ -577,6 +578,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (_selectedSession.value !in histRoundsForDate) {
                 _selectedSession.value = histRoundsForDate.first()
             }
+        } else if (savedSession.isNotEmpty()) {
+            _selectedSession.value = savedSession
         } else {
             _selectedSession.value = ""
         }
