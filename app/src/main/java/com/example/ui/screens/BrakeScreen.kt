@@ -108,9 +108,10 @@ fun BrakeScreen(
 
     // Left Column: "လက်ခံကွက်" reflects net kept bets after deducting passed bets (supports signed/negative balances)
     // Module 2: Include all 0-amount (zero-sales) numbers in "လက်ခံကွက်" (Full 00 to 99 range)
+    // Sorting: Active bets on top (amount DESC, number ASC), zero-amount numbers below in ascending order (00-99)
     val leftRetainedList = remember(vouchers, layoffs, selectedDate, selectedSession, activeBrake, isExplicitZeroBrake) {
         val full100 = viewModel.getAll100Numbers()
-        if (isExplicitZeroBrake) {
+        val mapped = if (isExplicitZeroBrake) {
             full100.map { summary ->
                 val retained = if (summary.netAmount < 0L) summary.netAmount else 0L
                 Triple(summary.n, summary.entryCount, retained)
@@ -126,6 +127,13 @@ fun BrakeScreen(
                 Triple(summary.n, summary.entryCount, summary.netAmount)
             }
         }
+        val (active, zero) = mapped.partition { it.third != 0L }
+        val sortedActive = active.sortedWith(
+            compareByDescending<Triple<String, Int, Long>> { it.third }
+                .thenBy { it.first.toIntOrNull() ?: 0 }
+        )
+        val sortedZero = zero.sortedBy { it.first.toIntOrNull() ?: 0 }
+        sortedActive + sortedZero
     }
 
     // Right Column: "တင်ကွက်" receives bets exceeding the active brake limit

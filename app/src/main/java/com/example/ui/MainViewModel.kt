@@ -299,6 +299,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
          initialValue = emptyList()
      )
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val ledgerNumbersState: StateFlow<List<NumberSales2D>> = combine(_selectedDate, _selectedSession) { date, session ->
+        Pair(date.toAsciiDigits().trim(), session.trim())
+    }.flatMapLatest { (date, session) ->
+        if (date.isBlank() || session.isBlank()) {
+            flowOf(generateSorted2DLedger(emptyMap()))
+        } else {
+            repository.getSalesMapForCurrentSessionFlow(date, session).map { salesMap ->
+                generateSorted2DLedger(salesMap)
+            }
+        }
+    }.flowOn(Dispatchers.Default)
+     .stateIn(
+         scope = viewModelScope,
+         started = SharingStarted.WhileSubscribed(5000),
+         initialValue = emptyList()
+     )
+
     private val _layoffs = MutableStateFlow<List<LayoffRecord>>(emptyList())
     val layoffs: StateFlow<List<LayoffRecord>> = _layoffs.asStateFlow()
 
@@ -1192,7 +1210,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         return if (includeZeroBets) {
-            allNumbers
+            val (activeBets, zeroBets) = allNumbers.partition { it.totalBet > 0L || it.layoffAmount > 0L || it.netAmount != 0L }
+            val sortedActiveBets = activeBets.sortedWith(
+                compareByDescending<NumberSummary> { it.netAmount }
+                    .thenBy { it.n.toIntOrNull() ?: 0 }
+            )
+            val sortedZeroBets = zeroBets.sortedBy { it.n.toIntOrNull() ?: 0 }
+            sortedActiveBets + sortedZeroBets
         } else {
             allNumbers.sortedWith(compareByDescending<NumberSummary> { it.netAmount }.thenBy { it.n })
         }

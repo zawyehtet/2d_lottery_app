@@ -125,16 +125,39 @@ fun String.toAsciiDigits(): String {
     }.joinToString("")
 }
 
-data class NumberSales2D(val number: String, val amount: Long)
+data class NumberSales2D(
+    val number: String,
+    val amount: Long
+)
 
-fun generateFull2DLedger(currentSalesMap: Map<String, Long>): List<NumberSales2D> {
-    val fullList = mutableListOf<NumberSales2D>()
-    for (i in 0..99) {
+fun generateSorted2DLedger(currentSalesMap: Map<String, Long>): List<NumberSales2D> {
+    // Generate all 100 numbers from "00" to "99"
+    val allNumbers = (0..99).map { i ->
         val numStr = String.format(java.util.Locale.US, "%02d", i)
-        val amount = currentSalesMap[numStr] ?: 0L
-        fullList.add(NumberSales2D(number = numStr, amount = amount))
+        NumberSales2D(
+            number = numStr,
+            amount = currentSalesMap[numStr] ?: 0L
+        )
     }
-    return fullList
+
+    // Partition into active bets and 0-amount numbers
+    val (activeBets, zeroBets) = allNumbers.partition { it.amount > 0L }
+
+    // 1. Active Bets: Highest amount first, tie-break by number ascending
+    val sortedActiveBets = activeBets.sortedWith(
+        compareByDescending<NumberSales2D> { it.amount }
+            .thenBy { it.number.toIntOrNull() ?: 0 }
+    )
+
+    // 2. Zero Bets: Ascending numeric order (00, 01, 02, ... 99)
+    val sortedZeroBets = zeroBets.sortedBy { it.number.toIntOrNull() ?: 0 }
+
+    // Combine: Active bets on top, followed by zero-amount numbers below
+    return sortedActiveBets + sortedZeroBets
 }
+
+fun generateFull2DLedger(currentSalesMap: Map<String, Long>): List<NumberSales2D> =
+    generateSorted2DLedger(currentSalesMap)
+
 
 

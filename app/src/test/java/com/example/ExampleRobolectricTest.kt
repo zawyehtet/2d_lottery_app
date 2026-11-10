@@ -1014,15 +1014,23 @@ class ExampleRobolectricTest {
         com.example.util.AppSoundManager2D.playTouchClick(context = app)
         com.example.util.AppSoundManager2D.playComplete(context = app)
 
-        // Module 2: generateFull2DLedger produces full 100 range from 00 to 99 with zero-sales included
-        val salesMap = mapOf("05" to 5000L, "99" to 2000L)
-        val fullLedger = com.example.data.generateFull2DLedger(salesMap)
-        assertEquals(100, fullLedger.size)
-        assertEquals("00", fullLedger.first().number)
-        assertEquals(0L, fullLedger.first().amount)
-        assertEquals(5000L, fullLedger.first { it.number == "05" }.amount)
-        assertEquals("99", fullLedger.last().number)
-        assertEquals(2000L, fullLedger.last().amount)
+        // 2D Ledger Sorting: Active bets highest amount first, tie-break number ASC, zero-amount numbers below in ascending order (00 to 99)
+        val salesMap = mapOf("05" to 5000L, "99" to 2000L, "12" to 2000L)
+        val sortedLedger = com.example.data.generateSorted2DLedger(salesMap)
+        assertEquals(100, sortedLedger.size)
+        // 1. Highest active bet
+        assertEquals("05", sortedLedger[0].number)
+        assertEquals(5000L, sortedLedger[0].amount)
+        // 2. Identical amount (2000L) tie-break by number ASC: "12" before "99"
+        assertEquals("12", sortedLedger[1].number)
+        assertEquals(2000L, sortedLedger[1].amount)
+        assertEquals("99", sortedLedger[2].number)
+        assertEquals(2000L, sortedLedger[2].amount)
+        // 3. Zero bets below in ascending order: "00", "01", ...
+        assertEquals("00", sortedLedger[3].number)
+        assertEquals(0L, sortedLedger[3].amount)
+        assertEquals("01", sortedLedger[4].number)
+        assertEquals(0L, sortedLedger[4].amount)
 
         // Module 4: Newest-first voucher order
         val allVouchersDesc = viewModel.vouchers.value.sortedWith(compareByDescending<com.example.data.Voucher> { it.no }.thenByDescending { it.id })

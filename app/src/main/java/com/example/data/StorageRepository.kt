@@ -1057,6 +1057,18 @@ class StorageRepository(context: Context) {
             list.map { it.toDomainVoucher() }
         }
 
+    fun getSalesMapForCurrentSessionFlow(date: String, round: String): Flow<Map<String, Long>> =
+        getVouchersForSessionFlow(date, round).map { vouchers ->
+            val map = mutableMapOf<String, Long>()
+            vouchers.forEach { v ->
+                v.items.forEach { item ->
+                    val k = item.n.toAsciiDigits()
+                    map[k] = (map[k] ?: 0L) + item.a
+                }
+            }
+            map
+        }
+
     fun getAllVouchersFlow(): Flow<List<Voucher>> =
         voucherDao.getAllVouchersFlow().map { list ->
             list.map { it.toDomainVoucher() }

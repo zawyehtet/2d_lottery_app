@@ -1259,6 +1259,42 @@ fun formatSignedProfitLoss(amount: Long): String {
     }
 }
 
+@Composable
+fun LedgerRowItem(
+    number: String,
+    amount: Long,
+    isZero: Boolean = amount == 0L,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = if (isZero) LuckyCardDark else LuckyCard,
+        border = BorderStroke(1.dp, if (isZero) LuckyBorder.copy(alpha = 0.5f) else LuckyBorder)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = number,
+                color = if (isZero) LuckyTextMuted else LuckyHeader,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (isZero) "0" else fmt(amount),
+                color = if (isZero) LuckyTextMuted else LuckyTextPrimary,
+                fontSize = 14.sp,
+                fontWeight = if (isZero) FontWeight.Normal else FontWeight.Bold
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true, backgroundColor = 0xFFF4F7F6, name = "Light Mode AppOutlinedTextField Preview")
 @Composable
 fun AppOutlinedTextFieldLightModePreview() {
