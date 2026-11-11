@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-lucky-bg: #F4F7F6;
+    --color-lucky-card: #FFFFFF;
+    --color-lucky-card-dark: #EAF0EE;
+    --color-lucky-header: #235347;
+    --color-lucky-header-dark: #183B32;
+    --color-lucky-success: #2E7D32;
+    --color-lucky-danger: #D32F2F;
+    --color-lucky-warning: #F57C00;
+    --color-lucky-border: #CBD5E1;
+  }
+}
+
+/* Custom mobile scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
