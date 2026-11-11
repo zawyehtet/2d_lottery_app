@@ -34,6 +34,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.Screen
 import com.example.ui.screens.*
 import com.example.ui.theme.*
+import com.example.util.AppSoundManager2D
 import com.example.util.SoundManager
 import kotlinx.coroutines.flow.collectLatest
 
@@ -43,6 +44,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppSoundManager2D.init(applicationContext)
         SoundManager.init(applicationContext)
         enableEdgeToEdge()
 
@@ -119,6 +121,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (isFinishing) {
+            AppSoundManager2D.release()
             SoundManager.release()
         }
         super.onDestroy()

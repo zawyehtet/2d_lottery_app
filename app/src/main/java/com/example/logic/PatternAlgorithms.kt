@@ -268,6 +268,10 @@ object PatternAlgorithms {
         val invalidTokens = mutableListOf<String>()
 
         val cleanedText = stripCommentAndGuideLines(text.toAsciiDigits())
+            .replace("ဒဲ့ကျန်", "/")
+            .replace("ဒဲ့", "=")
+            .replace("ကျန်", "/")
+            .replace(Regex("/[rR]"), "/")
         if (cleanedText.isBlank()) {
             return ParseResult(items, skipped, blockedList, invalidTokens)
         }
@@ -275,12 +279,17 @@ object PatternAlgorithms {
         // Split into entry tokens while supporting space/comma/dot separation of numbers before '=' or 'R'
         // First normalize spaces/commas between 2-digit numbers on the same line before '=' or 'R' into dots (e.g. "01 78=500" or "01,78=500" -> "01.78=500")
         val normalizedLines = cleanedText.lines().map { line ->
-            line.trim()
-                .replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
-                .replace(Regex("\\s*([=rR/])\\s*"), "$1")
-                .replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
-                .replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
-                .replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
+            var l = line.trim()
+            l = l.replace(Regex("([=])(\\d+)[rR](\\d+)"), "$1$2/$3")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})[-]+(?=\\d)"), "$1=")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})[.](?=\\d+/\\d+)"), "$1=")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})\\s+(?=\\d+/\\d+)"), "$1=")
+            l = l.replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
+            l = l.replace(Regex("\\s*([=rR/])\\s*"), "$1")
+            l = l.replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
+            l = l.replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
+            l = l.replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
+            l
         }
         val tokens = normalizedLines
             .flatMap { it.split(Regex("[\\s;|]+|,(?=\\s|$|[0-9]{1,2}[.=rR]|[0-9][abtwABTW]|[pnsxPNSX][0-9])")) }
@@ -320,8 +329,16 @@ object PatternAlgorithms {
                                     items.add(BetItem(n, amtDirect))
                                 }
                                 val rev = reverse2D(n)
-                                // If straight and reverse are identical (double like 11, 22), add only the straight amount without duplicating
-                                if (rev != n && amtReverse > 0L) {
+                                if (rev == n) {
+                                    // Twin number: capture both amounts when single twin number entered with split amounts
+                                    if (validNumbers.size == 1 && amtReverse > 0L) {
+                                        if (blocked.contains(n)) {
+                                            blockedList.add(n)
+                                        } else {
+                                            items.add(BetItem(n, amtReverse))
+                                        }
+                                    }
+                                } else if (amtReverse > 0L) {
                                     if (blocked.contains(rev)) {
                                         blockedList.add(rev)
                                     } else {
@@ -427,17 +444,26 @@ object PatternAlgorithms {
         val invalidTokens = mutableListOf<String>()
 
         val cleanedText = stripCommentAndGuideLines(text.toAsciiDigits())
+            .replace("ဒဲ့ကျန်", "/")
+            .replace("ဒဲ့", "=")
+            .replace("ကျန်", "/")
+            .replace(Regex("/[rR]"), "/")
         if (cleanedText.isBlank()) {
             return ParseResult(items, skipped, blockedList, invalidTokens)
         }
 
         val normalizedLines = cleanedText.lines().map { line ->
-            line.trim()
-                .replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
-                .replace(Regex("\\s*([=rR/])\\s*"), "$1")
-                .replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
-                .replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
-                .replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
+            var l = line.trim()
+            l = l.replace(Regex("([=])(\\d+)[rR](\\d+)"), "$1$2/$3")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})[-]+(?=\\d)"), "$1=")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})[.](?=\\d+/\\d+)"), "$1=")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})\\s+(?=\\d+/\\d+)"), "$1=")
+            l = l.replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
+            l = l.replace(Regex("\\s*([=rR/])\\s*"), "$1")
+            l = l.replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
+            l = l.replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
+            l = l.replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
+            l
         }
         val tokens = normalizedLines
             .flatMap { it.split(Regex("[\\s;|]+|,(?=\\s|$|[0-9]{1,2}[.=rR]|[0-9][abtwABTW]|[pnsxPNSX][0-9])")) }
@@ -563,15 +589,24 @@ object PatternAlgorithms {
      */
     fun validateQuickEntryAmounts(text: String, mode: Int): BetAmountValidationResult {
         val cleaned = stripCommentAndGuideLines(text.toAsciiDigits())
+            .replace("ဒဲ့ကျန်", "/")
+            .replace("ဒဲ့", "=")
+            .replace("ကျန်", "/")
+            .replace(Regex("/[rR]"), "/")
         if (cleaned.isEmpty()) return BetAmountValidationResult.Empty
 
         val normalizedLines = cleaned.lines().map { line ->
-            line.trim()
-                .replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
-                .replace(Regex("\\s*([=rR/])\\s*"), "$1")
-                .replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
-                .replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
-                .replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
+            var l = line.trim()
+            l = l.replace(Regex("([=])(\\d+)[rR](\\d+)"), "$1$2/$3")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})[-]+(?=\\d)"), "$1=")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})[.](?=\\d+/\\d+)"), "$1=")
+            l = l.replace(Regex("((?:\\b\\d{2}[.,\\s]+)*\\b\\d{2})\\s+(?=\\d+/\\d+)"), "$1=")
+            l = l.replace(Regex("(\\b\\d{2})[\\s,]+(?=\\d{2}(?:[.\\s,]+\\d{2})*\\s*[=rR])"), "$1.")
+            l = l.replace(Regex("\\s*([=rR/])\\s*"), "$1")
+            l = l.replace(Regex("([0-9.,\\s]+)[rR]=\\s*([0-9]+)"), "$1R$2")
+            l = l.replace(Regex("([0-9.,\\s]+)=\\s*[rR]([0-9]+)"), "$1R$2")
+            l = l.replace(Regex("([0-9.,\\s]+)=\\s*([0-9]+)[rR]"), "$1R$2")
+            l
         }
         val tokens = normalizedLines
             .flatMap { it.split(Regex("[\\s;|]+|,(?=\\s|$|[0-9]{1,2}[.=rR]|[0-9][abtwABTW]|[0-9]{2,9}[kK]|[pnsxPNSX][0-9])")) }

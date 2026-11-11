@@ -1036,6 +1036,99 @@ class ExampleRobolectricTest {
         val allVouchersDesc = viewModel.vouchers.value.sortedWith(compareByDescending<com.example.data.Voucher> { it.no }.thenByDescending { it.id })
         assertTrue(allVouchersDesc.first().no >= allVouchersDesc.last().no)
     }
+
+    @Test
+    fun `Fast Bet twin numbers capture both split amounts across all delimiter variations`() {
+        // 1. FastBetParser2D with twin numbers "00" and "11"
+        val split00 = com.example.logic.FastBetParser2D.parseInputText("00=2000/1000")
+        assertEquals(2, split00.size)
+        assertEquals("00", split00[0].number)
+        assertEquals(2000L, split00[0].amount)
+        assertEquals("00", split00[1].number)
+        assertEquals(1000L, split00[1].amount)
+
+        // Burmese delimiter "ဒဲ့ကျန်"
+        val burmeseSplit = com.example.logic.FastBetParser2D.parseInputText("00=2000ဒဲ့ကျန်1000")
+        assertEquals(2, burmeseSplit.size)
+        assertEquals("00", burmeseSplit[0].number)
+        assertEquals(2000L, burmeseSplit[0].amount)
+        assertEquals("00", burmeseSplit[1].number)
+        assertEquals(1000L, burmeseSplit[1].amount)
+
+        // "/R" variation
+        val slashRSplit = com.example.logic.FastBetParser2D.parseInputText("00=2000/R1000")
+        assertEquals(2, slashRSplit.size)
+        assertEquals("00", slashRSplit[0].number)
+        assertEquals(2000L, slashRSplit[0].amount)
+        assertEquals("00", slashRSplit[1].number)
+        assertEquals(1000L, slashRSplit[1].amount)
+
+        // "R" between amounts
+        val rBetweenSplit = com.example.logic.FastBetParser2D.parseInputText("00=2000R1000")
+        assertEquals(2, rBetweenSplit.size)
+        assertEquals("00", rBetweenSplit[0].number)
+        assertEquals(2000L, rBetweenSplit[0].amount)
+        assertEquals("00", rBetweenSplit[1].number)
+        assertEquals(1000L, rBetweenSplit[1].amount)
+
+        // Dash delimiter "00-2000/1000"
+        val dashSplit = com.example.logic.FastBetParser2D.parseInputText("00-2000/1000")
+        assertEquals(2, dashSplit.size)
+        assertEquals("00", dashSplit[0].number)
+        assertEquals(2000L, dashSplit[0].amount)
+        assertEquals("00", dashSplit[1].number)
+        assertEquals(1000L, dashSplit[1].amount)
+
+        // Dot delimiter "00.2000/1000"
+        val dotSplit = com.example.logic.FastBetParser2D.parseInputText("00.2000/1000")
+        assertEquals(2, dotSplit.size)
+        assertEquals("00", dotSplit[0].number)
+        assertEquals(2000L, dotSplit[0].amount)
+        assertEquals("00", dotSplit[1].number)
+        assertEquals(1000L, dotSplit[1].amount)
+
+        // Space delimiter "00 2000/1000"
+        val spaceSplit = com.example.logic.FastBetParser2D.parseInputText("00 2000/1000")
+        assertEquals(2, spaceSplit.size)
+        assertEquals("00", spaceSplit[0].number)
+        assertEquals(2000L, spaceSplit[0].amount)
+        assertEquals("00", spaceSplit[1].number)
+        assertEquals(1000L, spaceSplit[1].amount)
+
+        // Non-twin number "12=2000/1000" correctly maps direct (12) and reverse (21)
+        val nonTwinSplit = com.example.logic.FastBetParser2D.parseInputText("12=2000/1000")
+        assertEquals(2, nonTwinSplit.size)
+        assertEquals("12", nonTwinSplit[0].number)
+        assertEquals(2000L, nonTwinSplit[0].amount)
+        assertEquals("21", nonTwinSplit[1].number)
+        assertEquals(1000L, nonTwinSplit[1].amount)
+
+        // 2. PatternAlgorithms Quick Entry Mode 1 & Mode 2
+        val q1 = com.example.logic.PatternAlgorithms.parseQuickEntryMode1("00=2000/1000", emptySet())
+        assertEquals(2, q1.items.size)
+        assertEquals("00", q1.items[0].n)
+        assertEquals(2000L, q1.items[0].a)
+        assertEquals("00", q1.items[1].n)
+        assertEquals(1000L, q1.items[1].a)
+
+        val q1Burmese = com.example.logic.PatternAlgorithms.parseQuickEntryMode1("00=2000ဒဲ့ကျန်1000", emptySet())
+        assertEquals(2, q1Burmese.items.size)
+        assertEquals("00", q1Burmese.items[0].n)
+        assertEquals(2000L, q1Burmese.items[0].a)
+        assertEquals("00", q1Burmese.items[1].n)
+        assertEquals(1000L, q1Burmese.items[1].a)
+
+        val q2 = com.example.logic.PatternAlgorithms.parseQuickEntryMode2("00=2000/1000", emptySet())
+        assertEquals(2, q2.items.size)
+        assertEquals("00", q2.items[0].n)
+        assertEquals(2000L, q2.items[0].a)
+        assertEquals("00", q2.items[1].n)
+        assertEquals(1000L, q2.items[1].a)
+
+        // Validation succeeds for Burmese and special delimiters
+        assertTrue(com.example.logic.PatternAlgorithms.validateQuickEntryAmounts("00=2000ဒဲ့ကျန်1000", 1).isValid)
+        assertTrue(com.example.logic.PatternAlgorithms.validateQuickEntryAmounts("00-2000/1000", 1).isValid)
+    }
 }
 
 
