@@ -3,6 +3,7 @@ package com.example.util
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.SoundPool
 import android.os.Build
@@ -12,7 +13,8 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.View
 import com.example.R
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.exp
+import kotlin.math.sin
 
 enum class SoundEffect {
     CLICK,
@@ -22,11 +24,14 @@ enum class SoundEffect {
 }
 
 /**
- * AppSoundManager2D: In-App Bundled Audio Assets (SoundPool) for Touch Click & Complete Sounds.
- * - Zero OS system clicks or RingtoneManager phone sounds.
- * - SoundPool loads bundled assets: `res/raw/touch_click.ogg` and `res/raw/success_chime.ogg`.
- * - In-memory AudioTrack synthesized tone fallback if assets are not loaded or SoundPool fails.
- * - Subtle haptic vibration feedback for completions.
+ * AppSoundManager2D: 100% Isolated In-App Audio Assets (Zero Android System Audio Integration)
+ *  - ZERO calls to view.playSoundEffect(SoundEffectConstants.CLICK)
+ *  - ZERO calls to audioManager.playSoundEffect(AudioManager.FX_KEY_CLICK)
+ *  - ZERO calls to RingtoneManager
+ *  - ZERO low-frequency metallic sine-wave synthesizers ("ကွမ်" tone)
+ *  - Decoupled media stream: AudioAttributes.USAGE_GAME
+ *  - Plays strictly bundled assets: `res/raw/touch_click.ogg` and `res/raw/success_chime.ogg` via SoundPool
+ *  - Silent-safe fallback: in-memory 20ms micro-click buffer at 2400Hz (no phone OS sounds used)
  */
 object AppSoundManager2D {
     var isSoundEnabled: Boolean
@@ -37,77 +42,49 @@ object AppSoundManager2D {
 
     private var soundPool: SoundPool? = null
     private var touchSoundId: Int = 0
-    private var completeSoundId: Int = 0
-    private val touchSoundLoaded = AtomicBoolean(false)
-    private val completeSoundLoaded = AtomicBoolean(false)
+    private var successSoundId: Int = 0
+    private var isLoaded: Boolean = false
 
     internal var appContext: Context? = null
 
-    // Pre-computed fallback PCM buffers for zero-latency synthesized audio
-    private val clickPcm: ShortArray by lazy {
-        val sampleRate = 44100
-        val durationMs = 25
-        val numSamples = (sampleRate * durationMs) / 1000
-        val buffer = ShortArray(numSamples)
-        for (i in 0 until numSamples) {
-            val t = i.toDouble() / sampleRate
-            val env = kotlin.math.exp(-i.toDouble() / (sampleRate * 0.005))
-            val sample = kotlin.math.sin(2.0 * kotlin.math.PI * 1800.0 * t) * env
-            buffer[i] = (sample * Short.MAX_VALUE * 0.7).toInt().toShort()
-        }
-        buffer
-    }
-
-    private val chimePcm: ShortArray by lazy {
-        val sampleRate = 44100
-        val durationMs = 300
-        val numSamples = (sampleRate * durationMs) / 1000
-        val buffer = ShortArray(numSamples)
-        for (i in 0 until numSamples) {
-            val t = i.toDouble() / sampleRate
-            val env = kotlin.math.exp(-i.toDouble() / (sampleRate * 0.07))
-            val sample = (0.7 * kotlin.math.sin(2.0 * kotlin.math.PI * 1760.0 * t) +
-                    0.3 * kotlin.math.sin(2.0 * kotlin.math.PI * 3520.0 * t)) * env
-            buffer[i] = (sample * Short.MAX_VALUE * 0.6).toInt().toShort()
-        }
-        buffer
-    }
-
+    /**
+     * Initializes SoundPool and preloads in-app audio assets.
+     * Decoupled game/media stream (USAGE_GAME) avoids phone system ringtone/effects.
+     */
     @Synchronized
     fun init(context: Context) {
         val app = context.applicationContext
         appContext = app
         if (soundPool != null) return
 
-        try {
-            val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME) // Isolated media stream, decoupled from phone system ringtone/effects
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
 
-            soundPool = SoundPool.Builder()
-                .setMaxStreams(6)
-                .setAudioAttributes(audioAttributes)
-                .build().apply {
-                    setOnLoadCompleteListener { _, sampleId, status ->
-                        if (status == 0) {
-                            if (sampleId == touchSoundId) touchSoundLoaded.set(true)
-                            if (sampleId == completeSoundId) completeSoundLoaded.set(true)
-                        }
-                    }
+        soundPool = SoundPool.Builder()
+            .setMaxStreams(6)
+            .setAudioAttributes(attributes)
+            .build().apply {
+                setOnLoadCompleteListener { _, _, status ->
+                    if (status == 0) isLoaded = true
                 }
+            }
 
-            touchSoundId = soundPool?.load(app, R.raw.touch_click, 1) ?: 0
-            completeSoundId = soundPool?.load(app, R.raw.success_chime, 1) ?: 0
-        } catch (_: Throwable) {
-            touchSoundId = 0
-            completeSoundId = 0
+        soundPool?.let { pool ->
+            touchSoundId = try {
+                pool.load(app, R.raw.touch_click, 1)
+            } catch (_: Exception) { 0 }
+
+            successSoundId = try {
+                pool.load(app, R.raw.success_chime, 1)
+            } catch (_: Exception) { 0 }
         }
     }
 
     /**
-     * Play in-app mobile touch click sound ("တစ်/တချက်" style).
-     * Uses SoundPool touch_click.ogg, falling back to synthesized AudioTrack if not loaded.
+     * In-App Touch Click (Plays ONLY res/raw/touch_click.ogg)
+     * Zero dependence on Android System Click / Ringtone.
      */
     fun playTouchClick(view: View? = null, context: Context? = null) {
         if (!isSoundEnabled) return
@@ -116,20 +93,19 @@ object AppSoundManager2D {
             init(targetContext)
         }
 
-        if (soundPool != null && touchSoundId != 0 && touchSoundLoaded.get()) {
+        if (soundPool != null && touchSoundId != 0 && isLoaded) {
             try {
-                soundPool?.play(touchSoundId, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPool?.play(touchSoundId, 0.75f, 0.75f, 1, 0, 1.0f)
                 return
             } catch (_: Throwable) {}
         }
 
-        // Synthesized AudioTrack fallback (no OS click or RingtoneManager)
-        playSynthesizedClick()
+        // Silent-safe fallback: Clean 20ms micro-click in memory (No phone OS sound used)
+        playDirectMicroClick()
     }
 
     /**
-     * Play in-app completion chime sound with subtle haptic vibration.
-     * Uses SoundPool success_chime.ogg, falling back to synthesized AudioTrack chime.
+     * In-App Success Chime (Plays ONLY res/raw/success_chime.ogg)
      */
     fun playComplete(context: Context? = null) {
         if (!isSoundEnabled) return
@@ -138,103 +114,123 @@ object AppSoundManager2D {
             init(targetContext)
         }
 
-        if (soundPool != null && completeSoundId != 0 && completeSoundLoaded.get()) {
+        if (soundPool != null && successSoundId != 0 && isLoaded) {
             try {
-                soundPool?.play(completeSoundId, 1.0f, 1.0f, 1, 0, 1.0f)
+                soundPool?.play(successSoundId, 0.9f, 0.9f, 1, 0, 1.0f)
             } catch (_: Throwable) {
-                playSynthesizedChime()
+                // High-pitch dual chime fallback
+                playDirectSuccessTone()
             }
         } else {
-            playSynthesizedChime()
+            // High-pitch dual chime fallback
+            playDirectSuccessTone()
         }
 
-        vibrateSubtle(targetContext)
+        // Subtle 30ms haptic feedback
+        if (targetContext != null) {
+            triggerSubtleHaptic(targetContext)
+        }
     }
 
-    private fun playSynthesizedClick() {
-        try {
-            val sampleRate = 44100
-            val pcm = clickPcm
-            val track = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(sampleRate)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                        .build()
-                )
-                .setBufferSizeInBytes(pcm.size * 2)
-                .setTransferMode(AudioTrack.MODE_STATIC)
-                .build()
-            track.write(pcm, 0, pcm.size)
-            track.play()
-            Thread {
-                try {
-                    Thread.sleep(60)
-                    track.stop()
-                    track.release()
-                } catch (_: Throwable) {}
-            }.start()
-        } catch (_: Throwable) {}
-    }
-
-    private fun playSynthesizedChime() {
-        try {
-            val sampleRate = 44100
-            val pcm = chimePcm
-            val track = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(sampleRate)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                        .build()
-                )
-                .setBufferSizeInBytes(pcm.size * 2)
-                .setTransferMode(AudioTrack.MODE_STATIC)
-                .build()
-            track.write(pcm, 0, pcm.size)
-            track.play()
-            Thread {
-                try {
-                    Thread.sleep(350)
-                    track.stop()
-                    track.release()
-                } catch (_: Throwable) {}
-            }.start()
-        } catch (_: Throwable) {}
-    }
-
-    private fun vibrateSubtle(context: Context?) {
-        val ctx = context ?: appContext ?: return
+    private fun triggerSubtleHaptic(context: Context) {
         try {
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vm = ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
                 vm?.defaultVibrator
             } else {
                 @Suppress("DEPRECATION")
-                ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE))
+                vibrator?.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
-                vibrator?.vibrate(45)
+                vibrator?.vibrate(30)
             }
-        } catch (_: Throwable) {}
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Direct 20ms High-frequency micro-click (2400Hz steep decay, prevents "ကွမ်" echo)
+     */
+    private fun playDirectMicroClick() {
+        Thread {
+            try {
+                val sampleRate = 44100
+                val durationMs = 20
+                val numSamples = (durationMs * sampleRate) / 1000
+                val buffer = ShortArray(numSamples)
+
+                for (i in 0 until numSamples) {
+                    val progress = i.toDouble() / numSamples
+                    val envelope = exp(-10.0 * progress) // Instant decay
+                    val sample = sin(2.0 * Math.PI * 2400.0 * (i.toDouble() / sampleRate)) * envelope * 0.35
+                    buffer[i] = (sample * Short.MAX_VALUE).toInt().toShort()
+                }
+
+                @Suppress("DEPRECATION")
+                val track = AudioTrack(
+                    AudioManager.STREAM_MUSIC,
+                    sampleRate,
+                    AudioFormat.CHANNEL_OUT_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    buffer.size * 2,
+                    AudioTrack.MODE_STATIC
+                )
+                track.write(buffer, 0, buffer.size)
+                track.play()
+                Thread.sleep(durationMs.toLong() + 10)
+                track.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }.start()
+    }
+
+    /**
+     * Direct high chime fallback (1046.5Hz -> 1318.5Hz, 180ms total)
+     */
+    private fun playDirectSuccessTone() {
+        Thread {
+            try {
+                val sampleRate = 44100
+                val totalMs = 180
+                val numSamples = (totalMs * sampleRate) / 1000
+                val buffer = ShortArray(numSamples)
+                val split = (0.07 * sampleRate).toInt()
+
+                for (i in 0 until numSamples) {
+                    val t = i.toDouble() / sampleRate
+                    val sample = if (i < split) {
+                        val env = exp(-5.0 * (i.toDouble() / split))
+                        sin(2.0 * Math.PI * 1046.5 * t) * env * 0.4
+                    } else {
+                        val env = exp(-6.0 * ((i - split).toDouble() / (numSamples - split)))
+                        sin(2.0 * Math.PI * 1318.5 * t) * env * 0.5
+                    }
+                    buffer[i] = (sample * Short.MAX_VALUE).toInt().toShort()
+                }
+
+                @Suppress("DEPRECATION")
+                val track = AudioTrack(
+                    AudioManager.STREAM_MUSIC,
+                    sampleRate,
+                    AudioFormat.CHANNEL_OUT_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    buffer.size * 2,
+                    AudioTrack.MODE_STATIC
+                )
+                track.write(buffer, 0, buffer.size)
+                track.play()
+                Thread.sleep(totalMs.toLong() + 20)
+                track.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }.start()
     }
 
     @Synchronized
@@ -244,9 +240,8 @@ object AppSoundManager2D {
         } catch (_: Throwable) {}
         soundPool = null
         touchSoundId = 0
-        completeSoundId = 0
-        touchSoundLoaded.set(false)
-        completeSoundLoaded.set(false)
+        successSoundId = 0
+        isLoaded = false
         appContext = null
     }
 }

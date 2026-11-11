@@ -1464,7 +1464,7 @@ fun KeypadSmallButton(
             .clip(RoundedCornerShape(8.dp))
             .background(if (isSelected) LuckySuccess else LuckyHeader)
             .clickable(onClick = {
-                AppSoundManager2D.playTouchClick(view = view)
+                AppSoundManager2D.playTouchClick()
                 onClick()
             })
             .padding(horizontal = 4.dp),
@@ -1501,7 +1501,7 @@ fun KeypadBtn(
             .background(bgColor)
             .border(0.5.dp, LuckyBorder, RoundedCornerShape(10.dp))
             .clickable(enabled = enabled, onClick = {
-                AppSoundManager2D.playTouchClick(view = view)
+                AppSoundManager2D.playTouchClick()
                 onClick()
             })
             .padding(horizontal = 2.dp),
