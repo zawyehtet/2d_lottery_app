@@ -53,11 +53,6 @@ jobs:
           fi
           echo "Java version verified: $JAVA_MAJOR"
 
-      - name: Set up Gradle 9.3.1
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.3.1'
-
       - name: Create temporary debug keystore
         run: |
           if [ ! -f "./debug.keystore" ]; then
@@ -79,12 +74,8 @@ jobs:
 
       - name: Build Debug APK
         run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew :app:assembleDebug --stacktrace --no-daemon || gradle :app:assembleDebug --stacktrace --no-daemon
-          else
-            gradle :app:assembleDebug --stacktrace --no-daemon
-          fi
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK output
         id: verify_apk
