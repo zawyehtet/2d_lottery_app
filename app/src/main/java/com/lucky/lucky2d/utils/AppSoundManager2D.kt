@@ -8,6 +8,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import com.lucky.lucky2d.R
 
 object AppSoundManager2D {
     var isSoundEnabled: Boolean = true
@@ -18,12 +19,8 @@ object AppSoundManager2D {
     private var isTouchLoaded: Boolean = false
     private var isSuccessLoaded: Boolean = false
 
-    /**
-     * Initializes SoundPool and explicitly loads the provided audio files from res/raw/
-     */
     fun init(context: Context) {
         if (soundPool != null) return
-
         try {
             val attributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
@@ -31,7 +28,7 @@ object AppSoundManager2D {
                 .build()
 
             soundPool = SoundPool.Builder()
-                .setMaxStreams(6)
+                .setMaxStreams(8)
                 .setAudioAttributes(attributes)
                 .build().apply {
                     setOnLoadCompleteListener { _, sampleId, status ->
@@ -42,35 +39,21 @@ object AppSoundManager2D {
                     }
                 }
 
-            // Load provided touch sound file (touch_click.mp3 / .ogg / .wav)
-            val touchResId = context.resources.getIdentifier("touch_click", "raw", context.packageName)
-            if (touchResId != 0) {
-                touchSoundId = soundPool?.load(context, touchResId, 1) ?: 0
-            }
-
-            // Load provided success chime sound file (success_chime.mp3 / .ogg / .wav)
-            val successResId = context.resources.getIdentifier("success_chime", "raw", context.packageName)
-            if (successResId != 0) {
-                successSoundId = soundPool?.load(context, successResId, 1) ?: 0
-            }
+            // Hard-bind directly to res/raw/touch_click and res/raw/success_chime
+            touchSoundId = soundPool?.load(context.applicationContext, R.raw.touch_click, 1) ?: 0
+            successSoundId = soundPool?.load(context.applicationContext, R.raw.success_chime, 1) ?: 0
         } catch (e: Exception) {
-            Log.e("AppSoundManager2D", "Error initializing raw sound files", e)
+            Log.e("AppSoundManager2D", "SoundPool direct load failed", e)
         }
     }
 
-    /**
-     * Plays the provided touch sound
-     */
     fun playTouchClick() {
         if (!isSoundEnabled) return
         if (soundPool != null && touchSoundId != 0 && isTouchLoaded) {
-            soundPool?.play(touchSoundId, 0.85f, 0.85f, 1, 0, 1.0f)
+            soundPool?.play(touchSoundId, 0.9f, 0.9f, 1, 0, 1.0f)
         }
     }
 
-    /**
-     * Plays the provided success chime sound with subtle haptic feedback
-     */
     fun playComplete(context: Context) {
         if (!isSoundEnabled) return
         if (soundPool != null && successSoundId != 0 && isSuccessLoaded) {
@@ -87,7 +70,6 @@ object AppSoundManager2D {
                 @Suppress("DEPRECATION")
                 context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
             }
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator?.vibrate(VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {

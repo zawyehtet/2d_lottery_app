@@ -1,11 +1,23 @@
 class SoundManager {
   private isEnabled = true;
   private audioCtx: AudioContext | null = null;
-  private popBuffer: AudioBuffer | null = null;
-  private chimeBuffer: AudioBuffer | null = null;
+  private touchBuffer: AudioBuffer | null = null;
+  private completeBuffer: AudioBuffer | null = null;
+  private isPreloading = false;
 
   constructor() {
-    // Lazily initialized on first user interaction to comply with Web Audio autoplay policies
+    if (typeof window !== 'undefined') {
+      const initAudio = () => {
+        this.getAudioContext();
+        this.loadAudioFiles();
+        window.removeEventListener('click', initAudio);
+        window.removeEventListener('touchstart', initAudio);
+      };
+      window.addEventListener('click', initAudio, { passive: true });
+      window.addEventListener('touchstart', initAudio, { passive: true });
+      // Start background fetch immediately
+      this.loadAudioFiles();
+    }
   }
 
   public setSoundEnabled(enabled: boolean) {
@@ -34,98 +46,79 @@ class SoundManager {
     }
   }
 
-  /**
-   * Pre-renders crisp high-pitch 15ms pop (2500Hz) with instant exponential decay
-   * Strictly NO low-frequency metallic / reverberating "ကွမ်" tone.
-   */
-  private getOrCreatePopBuffer(ctx: AudioContext): AudioBuffer {
-    if (this.popBuffer) return this.popBuffer;
-    const sampleRate = ctx.sampleRate;
-    const durationMs = 15;
-    const numSamples = Math.floor((durationMs * sampleRate) / 1000);
-    const buffer = ctx.createBuffer(1, numSamples, sampleRate);
-    const data = buffer.getChannelData(0);
+  private async loadAudioFiles() {
+    if (this.isPreloading) return;
+    this.isPreloading = true;
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
 
-    for (let i = 0; i < numSamples; i++) {
-      const progress = i / numSamples;
-      const env = Math.exp(-12.0 * progress);
-      const s = Math.sin(2.0 * Math.PI * 2500.0 * (i / sampleRate)) * env * 0.3;
-      data[i] = s;
-    }
-
-    this.popBuffer = buffer;
-    return buffer;
-  }
-
-  /**
-   * Dual Chime: 150ms split chime (1046.5Hz C6 -> 1318.5Hz E6)
-   * "တီး-လင်" ဘောင်ချာအောင်မြင်သံ
-   */
-  private getOrCreateChimeBuffer(ctx: AudioContext): AudioBuffer {
-    if (this.chimeBuffer) return this.chimeBuffer;
-    const sampleRate = ctx.sampleRate;
-    const totalMs = 150;
-    const numSamples = Math.floor((totalMs * sampleRate) / 1000);
-    const split = Math.floor(0.05 * sampleRate);
-    const buffer = ctx.createBuffer(1, numSamples, sampleRate);
-    const data = buffer.getChannelData(0);
-
-    for (let i = 0; i < numSamples; i++) {
-      const t = i / sampleRate;
-      let sample = 0;
-      if (i < split) {
-        const env = Math.exp(-6.0 * (i / split));
-        sample = Math.sin(2.0 * Math.PI * 1046.5 * t) * env * 0.35;
-      } else {
-        const env = Math.exp(-7.0 * ((i - split) / (numSamples - split)));
-        sample = Math.sin(2.0 * Math.PI * 1318.5 * t) * env * 0.4;
+      if (!this.touchBuffer) {
+        const res = await fetch('/sounds/touch_click.mp3');
+        const arrayBuf = await res.arrayBuffer();
+        this.touchBuffer = await ctx.decodeAudioData(arrayBuf);
       }
-      data[i] = sample;
+      if (!this.completeBuffer) {
+        const res = await fetch('/sounds/success_chime.mp3');
+        const arrayBuf = await res.arrayBuffer();
+        this.completeBuffer = await ctx.decodeAudioData(arrayBuf);
+      }
+    } catch {
+      // Ignore background load errors
+    } finally {
+      this.isPreloading = false;
     }
-
-    this.chimeBuffer = buffer;
-    return buffer;
   }
 
   /**
-   * Mobile UI Tap ("တစ်" အသံတိုလေး - Provided touch_click sound)
+   * Mobile UI Tap (Plays strictly provided res/raw/touch_click audio file)
    */
   public playTouchClick() {
     if (!this.isEnabled) return;
     try {
-      const audio = new Audio('/sounds/touch_click.mp3');
-      audio.volume = 0.85;
-      audio.play().catch(() => {
-        const ctx = this.getAudioContext();
-        if (!ctx) return;
-        const buffer = this.getOrCreatePopBuffer(ctx);
+      const ctx = this.getAudioContext();
+      if (ctx && this.touchBuffer) {
         const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start();
-      });
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 0.9;
+        source.buffer = this.touchBuffer;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
+        return;
+      }
+
+      // Fallback: HTML5 Audio playing the exact file directly
+      const audio = new Audio('/sounds/touch_click.mp3');
+      audio.volume = 0.9;
+      audio.play().catch(() => {});
+      this.loadAudioFiles();
     } catch {
       // Ignore
     }
   }
 
   /**
-   * Voucher Saved Chime ("တီး-လင်" ဘောင်ချာအောင်မြင်သံ - Provided success_chime sound)
+   * Voucher Saved Chime (Plays strictly provided res/raw/success_chime audio file)
    */
   public playComplete() {
     if (!this.isEnabled) return;
     try {
-      const audio = new Audio('/sounds/success_chime.mp3');
-      audio.volume = 1.0;
-      audio.play().catch(() => {
-        const ctx = this.getAudioContext();
-        if (!ctx) return;
-        const buffer = this.getOrCreateChimeBuffer(ctx);
+      const ctx = this.getAudioContext();
+      if (ctx && this.completeBuffer) {
         const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start();
-      });
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 1.0;
+        source.buffer = this.completeBuffer;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
+      } else {
+        const audio = new Audio('/sounds/success_chime.mp3');
+        audio.volume = 1.0;
+        audio.play().catch(() => {});
+        this.loadAudioFiles();
+      }
 
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(25);
@@ -135,7 +128,7 @@ class SoundManager {
     }
   }
 
-  // Aliases ensuring every click route uses crisp pop
+  // Aliases ensuring every click route uses the provided touch_click sound
   public playClick() {
     this.playTouchClick();
   }
