@@ -204,6 +204,7 @@ export const NumberEntryScreen: React.FC = () => {
   };
 
   const handleAddBet = (withDoublesForKway = false) => {
+    soundManager.playTouchClick();
     if (!hasRound) {
       showToast('အကြိမ်ရေ အရင်ထည့်ပါ');
       return;
@@ -475,7 +476,10 @@ export const NumberEntryScreen: React.FC = () => {
           <button
             type="button"
             disabled={entryItems.length === 0}
-            onClick={() => setShowConfirmBetDialog(true)}
+            onClick={() => {
+              soundManager.playTouchClick();
+              setShowConfirmBetDialog(true);
+            }}
             className="h-9 px-4 bg-[#2E7D32] hover:bg-emerald-800 disabled:bg-slate-300 text-white rounded-lg font-bold text-xs shadow-sm flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
           >
             <span>ထိုးရန်</span>
