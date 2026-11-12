@@ -1,28 +1,28 @@
 package com.example.util
 
 import android.content.Context
-import com.lucky.lucky2d.utils.AppSoundManager2D as LuckyAppSoundManager2D
+import com.lucky.lucky2d.utils.AppSoundManager2D as TargetManager
 
 object AppSoundManager2D {
     var isSoundEnabled: Boolean
-        get() = LuckyAppSoundManager2D.isSoundEnabled
+        get() = TargetManager.isSoundEnabled
         set(value) {
-            LuckyAppSoundManager2D.isSoundEnabled = value
+            TargetManager.isSoundEnabled = value
         }
 
     fun init(context: Context) {
-        LuckyAppSoundManager2D.init(context)
+        TargetManager.init(context)
     }
 
-    fun playTouchClick() {
-        LuckyAppSoundManager2D.playTouchClick()
+    fun playTouchClick(context: Context? = null) {
+        TargetManager.playTouchClick(context)
     }
 
     fun playComplete(context: Context) {
-        LuckyAppSoundManager2D.playComplete(context)
+        TargetManager.playComplete(context)
     }
 
     fun release() {
-        LuckyAppSoundManager2D.release()
+        TargetManager.release()
     }
 }

@@ -12,39 +12,31 @@ object SoundManager {
         AppSoundManager2D.release()
     }
 
-    fun playClick() {
-        AppSoundManager2D.playTouchClick()
+    fun playClick(context: Context? = null) {
+        AppSoundManager2D.playTouchClick(context)
     }
 
-    fun playTap() {
-        AppSoundManager2D.playTouchClick()
+    fun playTap(context: Context? = null) {
+        AppSoundManager2D.playTouchClick(context)
     }
 
-    fun playEdit() {
-        AppSoundManager2D.playTouchClick()
+    fun playEdit(context: Context? = null) {
+        AppSoundManager2D.playTouchClick(context)
     }
 
-    fun playDelete() {
-        AppSoundManager2D.playTouchClick()
+    fun playDelete(context: Context? = null) {
+        AppSoundManager2D.playTouchClick(context)
     }
 
-    fun playSave() {
-        AppSoundManager2D.playTouchClick()
+    fun playSave(context: Context? = null) {
+        AppSoundManager2D.playTouchClick(context)
     }
 
-    fun playComplete(context: Context? = null) {
-        if (context != null) {
-            AppSoundManager2D.playComplete(context)
-        } else {
-            AppSoundManager2D.playTouchClick()
-        }
+    fun playComplete(context: Context) {
+        AppSoundManager2D.playComplete(context)
     }
 
-    fun playSuccess(context: Context? = null) {
-        if (context != null) {
-            AppSoundManager2D.playComplete(context)
-        } else {
-            AppSoundManager2D.playTouchClick()
-        }
+    fun playSuccess(context: Context) {
+        AppSoundManager2D.playComplete(context)
     }
 }

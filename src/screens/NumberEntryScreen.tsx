@@ -342,6 +342,7 @@ export const NumberEntryScreen: React.FC = () => {
   };
 
   const handleQuickEntrySubmit = () => {
+    soundManager.playTouchClick();
     if (!quickEntryText.trim()) return;
     const res =
       quickEntryMode === 1
@@ -461,7 +462,10 @@ export const NumberEntryScreen: React.FC = () => {
           <div className="relative">
             <button
               type="button"
-              onClick={() => setQuickEntryMode(1)}
+              onClick={() => {
+                soundManager.playTouchClick();
+                setQuickEntryMode(1);
+              }}
               className="h-9 px-3 bg-[#235347] hover:bg-[#183B32] text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-sm"
             >
               <Zap className="w-3.5 h-3.5" />
@@ -772,7 +776,10 @@ export const NumberEntryScreen: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setQuickEntryMode(null)}
+                onClick={() => {
+                  soundManager.playTouchClick();
+                  setQuickEntryMode(null);
+                }}
                 className="p-1 rounded-full hover:bg-slate-100"
               >
                 <X className="w-5 h-5 text-slate-500" />
@@ -782,7 +789,10 @@ export const NumberEntryScreen: React.FC = () => {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setQuickEntryMode(1)}
+                onClick={() => {
+                  soundManager.playTouchClick();
+                  setQuickEntryMode(1);
+                }}
                 className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${
                   quickEntryMode === 1
                     ? 'bg-[#235347] text-white border-[#235347]'
@@ -793,7 +803,10 @@ export const NumberEntryScreen: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setQuickEntryMode(2)}
+                onClick={() => {
+                  soundManager.playTouchClick();
+                  setQuickEntryMode(2);
+                }}
                 className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${
                   quickEntryMode === 2
                     ? 'bg-[#235347] text-white border-[#235347]'

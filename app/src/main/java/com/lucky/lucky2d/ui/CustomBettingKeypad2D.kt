@@ -38,6 +38,11 @@ object CustomBettingKeypad2D {
         AppSoundManager2D.playTouchClick()
     }
 
+    // '⚡ အမြန်ထိုး' / Fast Bet
+    fun onFastBetClick() {
+        AppSoundManager2D.playTouchClick()
+    }
+
     // Confirm & Save Voucher ('အတည်ပြုသိမ်းမည်')
     fun onConfirmVoucherSuccess(context: Context) {
         AppSoundManager2D.playComplete(context)

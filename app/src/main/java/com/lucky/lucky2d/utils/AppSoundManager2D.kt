@@ -22,6 +22,7 @@ object AppSoundManager2D {
     fun init(context: Context) {
         if (soundPool != null) return
         try {
+            val appCtx = context.applicationContext
             val attributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -39,23 +40,28 @@ object AppSoundManager2D {
                     }
                 }
 
-            // Hard-bind directly to res/raw/touch_click and res/raw/success_chime
-            touchSoundId = soundPool?.load(context.applicationContext, R.raw.touch_click, 1) ?: 0
-            successSoundId = soundPool?.load(context.applicationContext, R.raw.success_chime, 1) ?: 0
+            touchSoundId = soundPool?.load(appCtx, R.raw.touch_click, 1) ?: 0
+            successSoundId = soundPool?.load(appCtx, R.raw.success_chime, 1) ?: 0
         } catch (e: Exception) {
-            Log.e("AppSoundManager2D", "SoundPool direct load failed", e)
+            Log.e("AppSoundManager2D", "Failed to load R.raw audio", e)
         }
     }
 
-    fun playTouchClick() {
+    fun playTouchClick(context: Context? = null) {
         if (!isSoundEnabled) return
+        if (soundPool == null && context != null) {
+            init(context)
+        }
         if (soundPool != null && touchSoundId != 0 && isTouchLoaded) {
-            soundPool?.play(touchSoundId, 0.9f, 0.9f, 1, 0, 1.0f)
+            soundPool?.play(touchSoundId, 0.95f, 0.95f, 1, 0, 1.0f)
         }
     }
 
     fun playComplete(context: Context) {
         if (!isSoundEnabled) return
+        if (soundPool == null) {
+            init(context)
+        }
         if (soundPool != null && successSoundId != 0 && isSuccessLoaded) {
             soundPool?.play(successSoundId, 1.0f, 1.0f, 1, 0, 1.0f)
         }
