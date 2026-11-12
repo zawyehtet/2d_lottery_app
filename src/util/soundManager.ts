@@ -156,3 +156,4 @@ class SoundManager {
 
 export const soundManager = new SoundManager();
 export const AppSoundManager2D = soundManager;
+export const CleanAudio2D = soundManager;

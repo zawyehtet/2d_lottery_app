@@ -1,50 +1,50 @@
 package com.lucky.lucky2d.ui
 
 import android.content.Context
-import com.lucky.lucky2d.utils.AppSoundManager2D
+import com.lucky.lucky2d.utils.CleanAudio2D
 
 /**
- * 🍀 Lucky2D Keypad and Screen Sound Binding Reference
- * Enforces strictly in-app audio assets via AppSoundManager2D (Zero system sounds).
+ * 🍀 Lucky2D Clean Audio Keypad & UI Actions Binding
+ * Wires every button tap to CleanAudio2D.playClick() and voucher commit to CleanAudio2D.playSuccess()
  */
 object CustomBettingKeypad2D {
-    // Keypad digits 0-9
-    fun onDigitClick(digit: String) {
-        AppSoundManager2D.playTouchClick()
+    // Keypad digits 0-9, 00, 000
+    fun onDigitClick(digit: String, context: Context? = null) {
+        CleanAudio2D.playClick(context)
     }
 
-    // Quick bet patterns (ပါဝါ, နက္ခတ်, ညီအစ်ကို, အပူး, ထိပ်, နောက်, အခွေ, etc.)
-    fun onPatternClick(patternName: String) {
-        AppSoundManager2D.playTouchClick()
+    // Quick patterns (ပါဝါ, နက္ခတ်, ညီအစ်ကို, အပူး, ထိပ်, နောက်, အခွေ, အပါ, ဘရိတ်)
+    fun onPatternClick(patternName: String, context: Context? = null) {
+        CleanAudio2D.playClick(context)
     }
 
     // Reverse toggle 'R'
-    fun onReverseClick() {
-        AppSoundManager2D.playTouchClick()
+    fun onReverseClick(context: Context? = null) {
+        CleanAudio2D.playClick(context)
     }
 
     // Delete / Backspace 'ဖျက်'
-    fun onDeleteClick() {
-        AppSoundManager2D.playTouchClick()
+    fun onDeleteClick(context: Context? = null) {
+        CleanAudio2D.playClick(context)
     }
 
     // OK / Enter button
-    fun onOkClick() {
-        AppSoundManager2D.playTouchClick()
+    fun onOkClick(context: Context? = null) {
+        CleanAudio2D.playClick(context)
     }
 
     // 'ထိုးရန်' / Add bet to draft
-    fun onAddBetClick() {
-        AppSoundManager2D.playTouchClick()
+    fun onAddBetClick(context: Context? = null) {
+        CleanAudio2D.playClick(context)
     }
 
     // '⚡ အမြန်ထိုး' / Fast Bet
-    fun onFastBetClick() {
-        AppSoundManager2D.playTouchClick()
+    fun onFastBetClick(context: Context? = null) {
+        CleanAudio2D.playClick(context)
     }
 
     // Confirm & Save Voucher ('အတည်ပြုသိမ်းမည်')
     fun onConfirmVoucherSuccess(context: Context) {
-        AppSoundManager2D.playComplete(context)
+        CleanAudio2D.playSuccess(context)
     }
 }
