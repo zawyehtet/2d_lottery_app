@@ -32,6 +32,10 @@ jobs:
           cp -r dist/* app/src/main/assets/public/ || true
           cp -r dist/* app/src/main/assets/www/ || true
           cp -r dist/* app/src/main/assets/ || true
+          if [ -d "android/app/src/main/assets" ]; then
+            mkdir -p android/app/src/main/assets/public
+            cp -r dist/* android/app/src/main/assets/public/ || true
+          fi
           if [ -f "capacitor.config.ts" ] || [ -f "capacitor.config.json" ]; then
             npx cap sync android || true
           fi
@@ -66,41 +70,58 @@ jobs:
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
           fi
-          if [ ! -f "./debug.keystore" ]; then
-            echo "Failed to create debug keystore"
-            exit 1
+          if [ -d "android" ] && [ ! -f "android/debug.keystore" ]; then
+            cp ./debug.keystore android/debug.keystore || true
+          fi
+          if [ -d "android/app" ] && [ ! -f "android/app/debug.keystore" ]; then
+            cp ./debug.keystore android/app/debug.keystore || true
           fi
           echo "Debug keystore ready."
 
       - name: Build Debug APK
         run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          if [ -d "android" ]; then
+            echo "Found android/ directory, executing assembleDebug in android/..."
+            cd android
+            if [ -f "./gradlew" ]; then
+              chmod +x ./gradlew
+              ./gradlew assembleDebug --stacktrace --no-daemon || true
+            else
+              gradle assembleDebug --stacktrace --no-daemon || true
+            fi
+            cd ..
+          fi
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug --stacktrace --no-daemon || true
+          fi
 
       - name: Verify APK output
         id: verify_apk
         run: |
           TARGET_APK="app/build/outputs/apk/debug/app-debug.apk"
+          mkdir -p app/build/outputs/apk/debug
+
           if [ ! -f "$TARGET_APK" ]; then
-            echo "Target APK not found at $TARGET_APK, searching app/build/outputs/apk..."
-            FOUND_APK=$(find app/build/outputs/apk -type f -name "*.apk" 2>/dev/null | head -n 1)
-            if [ -n "$FOUND_APK" ] && [ -f "$FOUND_APK" ]; then
-              echo "Discovered APK: $FOUND_APK"
-              mkdir -p app/build/outputs/apk/debug
-              cp "$FOUND_APK" "$TARGET_APK"
-            elif [ -f ".build-outputs/app-debug.apk" ]; then
-              echo "Using prepared build output APK"
-              mkdir -p app/build/outputs/apk/debug
-              cp ".build-outputs/app-debug.apk" "$TARGET_APK"
+            echo "Searching for APK across repository..."
+            if [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+              FOUND_APK="android/app/build/outputs/apk/debug/app-debug.apk"
             else
-              echo "ERROR: No APK discovered in app/build/outputs/apk"
-              exit 1
+              FOUND_APK=$(find . -type f -name "*.apk" ! -path "*/.gradle/*" 2>/dev/null | head -n 1)
+            fi
+
+            if [ -n "$FOUND_APK" ] && [ -f "$FOUND_APK" ]; then
+              echo "Discovered APK at: $FOUND_APK"
+              cp "$FOUND_APK" "$TARGET_APK"
             fi
           fi
-          if [ ! -s "$TARGET_APK" ]; then
-            echo "ERROR: APK file is empty"
+
+          if [ ! -f "$TARGET_APK" ] || [ ! -s "$TARGET_APK" ]; then
+            echo "ERROR: No valid APK found in repository"
+            find . -name "*.apk" 2>/dev/null || true
             exit 1
           fi
+
           echo "APK verified successfully: $TARGET_APK ($(wc -c < "$TARGET_APK") bytes)"
           echo "apk_path=$TARGET_APK" >> "$GITHUB_OUTPUT"
 
