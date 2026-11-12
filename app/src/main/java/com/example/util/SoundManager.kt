@@ -4,6 +4,14 @@ import android.content.Context
 import com.lucky.lucky2d.utils.AppSoundManager2D
 
 object SoundManager {
+    fun init(context: Context) {
+        AppSoundManager2D.init(context)
+    }
+
+    fun release() {
+        AppSoundManager2D.release()
+    }
+
     fun playClick() {
         AppSoundManager2D.playTouchClick()
     }

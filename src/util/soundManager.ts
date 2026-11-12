@@ -88,36 +88,44 @@ class SoundManager {
   }
 
   /**
-   * Mobile UI Tap ("တစ်" အသံတိုလေး - Strictly NO "ကွမ်" sound)
+   * Mobile UI Tap ("တစ်" အသံတိုလေး - Provided touch_click sound)
    */
   public playTouchClick() {
     if (!this.isEnabled) return;
     try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
-      const buffer = this.getOrCreatePopBuffer(ctx);
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start();
+      const audio = new Audio('/sounds/touch_click.mp3');
+      audio.volume = 0.85;
+      audio.play().catch(() => {
+        const ctx = this.getAudioContext();
+        if (!ctx) return;
+        const buffer = this.getOrCreatePopBuffer(ctx);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start();
+      });
     } catch {
       // Ignore
     }
   }
 
   /**
-   * Voucher Saved Chime ("တီး-လင်" ဘောင်ချာအောင်မြင်သံ)
+   * Voucher Saved Chime ("တီး-လင်" ဘောင်ချာအောင်မြင်သံ - Provided success_chime sound)
    */
   public playComplete() {
     if (!this.isEnabled) return;
     try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
-      const buffer = this.getOrCreateChimeBuffer(ctx);
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start();
+      const audio = new Audio('/sounds/success_chime.mp3');
+      audio.volume = 1.0;
+      audio.play().catch(() => {
+        const ctx = this.getAudioContext();
+        if (!ctx) return;
+        const buffer = this.getOrCreateChimeBuffer(ctx);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start();
+      });
 
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(25);
