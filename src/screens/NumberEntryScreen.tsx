@@ -20,6 +20,7 @@ import {
 } from '../logic/patternAlgorithms';
 import { BetItem } from '../types';
 import { soundManager } from '../util/soundManager';
+import { QuickShareModal } from '../components/QuickShareModal';
 
 export const NumberEntryScreen: React.FC = () => {
   const {
@@ -62,6 +63,11 @@ export const NumberEntryScreen: React.FC = () => {
   const [editNumInput, setEditNumInput] = useState('');
   const [editAmtInput, setEditAmtInput] = useState('');
   const [deletingItemIndex, setDeletingItemIndex] = useState<number | null>(null);
+  const [quickShareData, setQuickShareData] = useState<{
+    agentName: string;
+    phoneNumber: string;
+    shareText: string;
+  } | null>(null);
 
   const tableEndRef = useRef<HTMLDivElement>(null);
 
@@ -900,9 +906,16 @@ export const NumberEntryScreen: React.FC = () => {
                       entryAgent?.id === ag.id ? 'bg-emerald-50 text-[#235347] font-bold' : 'text-slate-800'
                     }`}
                   >
-                    <span>
-                      {ag.id}. {ag.name}
-                    </span>
+                    <div className="flex flex-col items-start">
+                      <span>
+                        {ag.id}. {ag.name}
+                      </span>
+                      {ag.phoneNumber && ag.phoneNumber.trim() !== '' && (
+                        <span className="text-[11px] text-[#0A4D3C] font-medium">
+                          📞 {ag.phoneNumber.trim()}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-slate-500 font-medium">
                       ကော် {ag.rate}% | အဆ {ag.mult}
                     </span>
@@ -1001,7 +1014,17 @@ export const NumberEntryScreen: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setShowConfirmBetDialog(false);
-                  commitCurrentVoucher();
+                  const result = commitCurrentVoucher();
+                  if (result) {
+                    const phone = (result.agent.phoneNumber || '').trim();
+                    if (phone !== '') {
+                      setQuickShareData({
+                        agentName: result.agent.name,
+                        phoneNumber: phone,
+                        shareText: `No.${result.agentSlipCount}=${result.totalAmount}`,
+                      });
+                    }
+                  }
                 }}
                 className="flex-1 py-2.5 bg-[#2E7D32] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md"
               >
@@ -1077,6 +1100,16 @@ export const NumberEntryScreen: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* MODAL 6: Conditional Quick-Share Modal */}
+      {quickShareData && (
+        <QuickShareModal
+          agentName={quickShareData.agentName}
+          phoneNumber={quickShareData.phoneNumber}
+          shareText={quickShareData.shareText}
+          onShowToast={showToast}
+          onClose={() => setQuickShareData(null)}
+        />
       )}
     </div>
   );

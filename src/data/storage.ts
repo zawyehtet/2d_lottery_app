@@ -117,7 +117,11 @@ export function loadAgents(): Agent[] {
   try {
     const raw = localStorage.getItem(KEY_AGENTS);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw) as Agent[];
+      return parsed.map((a) => ({
+        ...a,
+        phoneNumber: typeof a.phoneNumber === 'string' ? a.phoneNumber : '',
+      }));
     }
     return [];
   } catch {
@@ -142,10 +146,18 @@ export function loadAgentsForDateAndRound(date: string, round: string): Agent[] 
 export function insertOrUpdateAgentForSession(date: string, round: string, agent: Agent): Agent[] {
   const asciiDate = toAsciiDigits(date);
   const all = loadAgents();
-  const existingIdx = all.findIndex(
+  let existingIdx = all.findIndex(
     (a) => toAsciiDigits(a.date) === asciiDate && a.roundNumber === round && a.id === agent.id
   );
-  const updatedAgent = { ...agent, date: asciiDate, roundNumber: round };
+  if (existingIdx === -1) {
+    existingIdx = all.findIndex((a) => a.id === agent.id);
+  }
+  const updatedAgent: Agent = {
+    ...agent,
+    phoneNumber: (agent.phoneNumber || '').trim(),
+    date: asciiDate,
+    roundNumber: round,
+  };
   if (existingIdx !== -1) {
     all[existingIdx] = updatedAgent;
   } else {

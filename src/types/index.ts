@@ -15,6 +15,7 @@ export interface Agent {
   name: string;
   rate: number;
   mult: number;
+  phoneNumber?: string;
   date: string;
   roundNumber: string;
 }
