@@ -20,11 +20,13 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import com.lucky.lucky2d.utils.CleanAudio2D
 import java.io.IOException
 import java.net.URLDecoder
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
 
@@ -39,7 +41,8 @@ class MainActivity : Activity() {
 
         private fun copyToClipboard(text: String) {
             try {
-                val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                val clipboard =
+                    activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                 clipboard?.setPrimaryClip(ClipData.newPlainText("Lucky2D", text))
             } catch (_: Exception) {
                 // Ignore clipboard exceptions on restricted devices
@@ -127,7 +130,8 @@ class MainActivity : Activity() {
                 }
 
                 try {
-                    val launchIntent = activity.packageManager.getLaunchIntentForPackage(PKG_MESSENGER)
+                    val launchIntent =
+                        activity.packageManager.getLaunchIntentForPackage(PKG_MESSENGER)
                     if (launchIntent != null) {
                         activity.startActivity(launchIntent)
                         return@runOnUiThread
@@ -136,7 +140,8 @@ class MainActivity : Activity() {
                     // Ignore and show toast below
                 }
 
-                Toast.makeText(activity, "Messenger ထည့်သွင်းထားခြင်း မရှိပါ", Toast.LENGTH_SHORT).show()
+                Toast.makeText(activity, "Messenger ထည့်သွင်းထားခြင်း မရှိပါ", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
     }
@@ -253,6 +258,20 @@ class MainActivity : Activity() {
             }
         }
 
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (::webView.isInitialized && webView.canGoBack()) {
+                        webView.goBack()
+                    } else {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            }
+        )
+
         setContentView(webView)
         webView.loadUrl(START_URL)
     }
@@ -363,16 +382,6 @@ class MainActivity : Activity() {
             webView.onPause()
         }
         super.onPause()
-    }
-
-    @Deprecated("Deprecated in Java")
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
     }
 
     override fun onDestroy() {

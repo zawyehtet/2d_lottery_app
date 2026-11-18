@@ -41,3 +41,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+dependencies {
+    implementation("androidx.activity:activity:1.10.1")
+}

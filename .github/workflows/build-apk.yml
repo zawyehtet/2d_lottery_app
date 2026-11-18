@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies & build Web bundle
         run: |
-          npm ci || npm install
+          npm install
           npm run lint
           npm run build
           rm -rf app/src/main/assets
@@ -71,7 +71,7 @@ jobs:
       - name: Build Debug APK
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:assembleDebug --stacktrace --no-daemon
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK output
         id: verify_apk
@@ -83,7 +83,7 @@ jobs:
             exit 1
           fi
           python3 -c "
-          import zipfile, sys
+          import zipfile
           z = zipfile.ZipFile('$TARGET_APK')
           names = set(z.namelist())
           assert 'assets/index.html' in names, 'Missing assets/index.html in APK'
