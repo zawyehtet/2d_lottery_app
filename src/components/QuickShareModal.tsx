@@ -2,6 +2,16 @@ import React from 'react';
 import { MessageSquare, Send, MessageCircle, X } from 'lucide-react';
 import { soundManager } from '../util/soundManager';
 
+declare global {
+  interface Window {
+    AndroidShare?: {
+      shareSms?: (phone: string, text: string) => void;
+      shareViber?: (text: string) => void;
+      shareMessenger?: (text: string) => void;
+    };
+  }
+}
+
 interface QuickShareModalProps {
   agentName: string;
   phoneNumber: string;
@@ -46,6 +56,10 @@ export const QuickShareModal: React.FC<QuickShareModalProps> = ({
 
   const handleSmsShare = () => {
     soundManager.playClick();
+    if (typeof window !== 'undefined' && window.AndroidShare?.shareSms) {
+      window.AndroidShare.shareSms(cleanPhone, shareText);
+      return;
+    }
     window.location.href =
       'sms:' + encodeURIComponent(cleanPhone) + '?body=' + encodeURIComponent(shareText);
   };
@@ -54,6 +68,10 @@ export const QuickShareModal: React.FC<QuickShareModalProps> = ({
     soundManager.playClick();
     await copyTextToClipboard(shareText);
     onShowToast('စာသားကူးယူပြီး Viber ဖွင့်နေပါသည်');
+    if (typeof window !== 'undefined' && window.AndroidShare?.shareViber) {
+      window.AndroidShare.shareViber(shareText);
+      return;
+    }
     window.location.href = 'viber://forward?text=' + encodeURIComponent(shareText);
   };
 
@@ -61,20 +79,20 @@ export const QuickShareModal: React.FC<QuickShareModalProps> = ({
     soundManager.playClick();
     await copyTextToClipboard(shareText);
     onShowToast('စာသားကူးယူပြီး Messenger ဖွင့်နေပါသည်');
-
-    const messengerUrl =
-      'fb-messenger://share/?link=&app_id=&text=' + encodeURIComponent(shareText);
-    window.location.href = messengerUrl;
+    if (typeof window !== 'undefined' && window.AndroidShare?.shareMessenger) {
+      window.AndroidShare.shareMessenger(shareText);
+      return;
+    }
 
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      setTimeout(() => {
-        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-          navigator.share({ text: shareText }).catch(() => {
-            // Ignore cancel or unsupported share
-          });
-        }
-      }, 450);
+      navigator.share({ text: shareText }).catch(() => {
+        // Ignore cancel or fallback silently
+      });
+      return;
     }
+
+    window.location.href =
+      'fb-messenger://share/?link=&app_id=&text=' + encodeURIComponent(shareText);
   };
 
   const handleDismiss = () => {

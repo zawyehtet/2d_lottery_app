@@ -26,18 +26,12 @@ jobs:
       - name: Install dependencies & build Web bundle
         run: |
           npm ci || npm install
+          npm run lint
           npm run build
-          mkdir -p app/src/main/assets/public app/src/main/assets/www app/src/main/assets
-          cp -r dist/* app/src/main/assets/public/
-          cp -r dist/* app/src/main/assets/www/
+          rm -rf app/src/main/assets
+          mkdir -p app/src/main/assets
           cp -r dist/* app/src/main/assets/
-          if [ -d "android/app/src/main/assets" ]; then
-            mkdir -p android/app/src/main/assets/public
-            cp -r dist/* android/app/src/main/assets/public/
-          fi
-          if [ -f "capacitor.config.ts" ] || [ -f "capacitor.config.json" ]; then
-            npx cap sync android || true
-          fi
+          ls -la app/src/main/assets/ app/src/main/assets/assets/
 
       - name: Set up Temurin Java 17
         uses: actions/setup-java@v4
@@ -56,6 +50,9 @@ jobs:
           fi
           echo "Java version verified: $JAVA_MAJOR"
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Create temporary debug keystore
         run: |
           if [ ! -f "./debug.keystore" ]; then
@@ -69,40 +66,31 @@ jobs:
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
           fi
-          if [ -d "android" ] && [ ! -f "android/debug.keystore" ]; then
-            cp ./debug.keystore android/debug.keystore || true
-          fi
-          if [ -d "android/app" ] && [ ! -f "android/app/debug.keystore" ]; then
-            cp ./debug.keystore android/app/debug.keystore || true
-          fi
           echo "Debug keystore ready."
 
       - name: Build Debug APK
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK output
         id: verify_apk
         run: |
           TARGET_APK="app/build/outputs/apk/debug/app-debug.apk"
-          if [ ! -f "$TARGET_APK" ]; then
-            echo "Target APK not found at $TARGET_APK, checking tracked backup candidates..."
-            if [ -f "app/build-outputs/app-debug.apk" ]; then
-              mkdir -p app/build/outputs/apk/debug
-              cp "app/build-outputs/app-debug.apk" "$TARGET_APK"
-            elif [ -f "app/src/main/assets/app-debug.apk" ]; then
-              mkdir -p app/build/outputs/apk/debug
-              cp "app/src/main/assets/app-debug.apk" "$TARGET_APK"
-            fi
-          fi
-
           if [ ! -f "$TARGET_APK" ] || [ ! -s "$TARGET_APK" ]; then
             echo "ERROR: No valid APK found at $TARGET_APK"
             find . -name "*.apk" 2>/dev/null || true
             exit 1
           fi
-
+          python3 -c "
+          import zipfile, sys
+          z = zipfile.ZipFile('$TARGET_APK')
+          names = set(z.namelist())
+          assert 'assets/index.html' in names, 'Missing assets/index.html in APK'
+          assert any(n.startswith('assets/assets/index-') and n.endswith('.js') for n in names), 'Missing bundled JS in APK'
+          assert 'classes.dex' in names, 'Missing classes.dex in APK'
+          print('Verified fresh WebView APK contents:', len(names), 'entries')
+          "
           echo "APK verified successfully: $TARGET_APK ($(wc -c < "$TARGET_APK") bytes)"
           echo "apk_path=$TARGET_APK" >> "$GITHUB_OUTPUT"
 
