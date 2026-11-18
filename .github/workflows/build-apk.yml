@@ -107,45 +107,20 @@ jobs:
           echo "APK verified successfully: $TARGET_APK ($(wc -c < "$TARGET_APK") bytes)"
           echo "apk_path=$TARGET_APK" >> "$GITHUB_OUTPUT"
 
-      - name: Upload debug APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-
-      - name: Prepare APK release asset
-        id: prepare_asset
-        run: |
-          TMP_DIR=$(mktemp -d)
-          cp app/build/outputs/apk/debug/app-debug.apk "$TMP_DIR/app-debug.apk"
-          echo "release_asset_path=$TMP_DIR/app-debug.apk" >> "$GITHUB_OUTPUT"
-          echo "Prepared release asset: $TMP_DIR/app-debug.apk ($(wc -c < "$TMP_DIR/app-debug.apk") bytes)"
-
       - name: Publish APK to GitHub Releases
         id: publish_release
-        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Lucky 2D Latest APK
+          overwrite: true
+          make_latest: true
+          files: app/build/outputs/apk/debug/app-debug.apk
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh --version
-          ASSET_PATH="${{ steps.prepare_asset.outputs.release_asset_path }}"
-          if [ ! -f "$ASSET_PATH" ]; then
-            echo "ERROR: Release asset $ASSET_PATH not found"
-            exit 1
-          fi
-          TAG_NAME="debug-apk-build-${{ github.run_number }}-${{ github.run_attempt }}"
-          TITLE="Debug APK Build #${{ github.run_number }}"
-          gh release create "$TAG_NAME" "$ASSET_PATH" \
-            --title "$TITLE" \
-            --notes "Automated debug APK build from GitHub Actions (Run #${{ github.run_number }}, Attempt #${{ github.run_attempt }}, Commit ${{ github.sha }})." \
-            --target "${{ github.sha }}" \
-            --latest
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Report APK download result
         if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ steps.publish_release.outcome }}" = "success" ]; then
             DIRECT_URL="https://github.com/${{ github.repository }}/releases/latest/download/app-debug.apk"
@@ -153,10 +128,10 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "[$DIRECT_URL]($DIRECT_URL)" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "- **Artifact:** \`app-debug.apk\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- **Actions Backup:** \`app-debug-apk\` artifact is preserved" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Release:** \`Lucky 2D Latest APK\` (tag: \`latest\`)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Asset:** \`app-debug.apk\`" >> "$GITHUB_STEP_SUMMARY"
             echo "Release published successfully: $DIRECT_URL"
           else
             echo "### ⚠️ GitHub Release Publishing Notice" >> "$GITHUB_STEP_SUMMARY"
-            echo "The debug APK built successfully and is preserved as an Actions artifact: **app-debug-apk**." >> "$GITHUB_STEP_SUMMARY"
+            echo "Release publishing did not complete successfully." >> "$GITHUB_STEP_SUMMARY"
           fi
