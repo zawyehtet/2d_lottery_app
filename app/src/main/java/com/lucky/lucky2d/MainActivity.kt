@@ -20,13 +20,11 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
 import com.lucky.lucky2d.utils.CleanAudio2D
 import java.io.IOException
 import java.net.URLDecoder
 
-class MainActivity : ComponentActivity() {
+class MainActivity : Activity() {
 
     private lateinit var webView: WebView
 
@@ -258,20 +256,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        onBackPressedDispatcher.addCallback(
-            this,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    if (::webView.isInitialized && webView.canGoBack()) {
-                        webView.goBack()
-                    } else {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
-                    }
-                }
-            }
-        )
-
         setContentView(webView)
         webView.loadUrl(START_URL)
     }
@@ -382,6 +366,16 @@ class MainActivity : ComponentActivity() {
             webView.onPause()
         }
         super.onPause()
+    }
+
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (::webView.isInitialized && webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
+        }
     }
 
     override fun onDestroy() {
