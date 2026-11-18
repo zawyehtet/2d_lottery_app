@@ -50,9 +50,6 @@ jobs:
           fi
           echo "Java version verified: $JAVA_MAJOR"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Create temporary debug keystore
         run: |
           if [ ! -f "./debug.keystore" ]; then
