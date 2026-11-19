@@ -3,13 +3,8 @@ import {
   X,
   Zap,
   Trash2,
-  Edit2,
-  Check,
-  AlertCircle,
-  HelpCircle,
-  Users,
 } from 'lucide-react';
-import { useLottery, fmt } from '../context/LotteryContext';
+import { useLottery } from '../context/LotteryContext';
 import {
   generateNumbersForPattern,
   parseBetInput,
@@ -40,11 +35,9 @@ export const NumberEntryScreen: React.FC = () => {
     entryAgent,
     setEntryAgent,
     entryItems,
-    addEntryItem,
     addEntryItems,
     editEntryItem,
     deleteEntryItem,
-    clearEntryItems,
     commitCurrentVoucher,
     blocked,
     goBack,
@@ -71,7 +64,6 @@ export const NumberEntryScreen: React.FC = () => {
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [editNumInput, setEditNumInput] = useState('');
   const [editAmtInput, setEditAmtInput] = useState('');
-  const [deletingItemIndex, setDeletingItemIndex] = useState<number | null>(null);
   const [quickShareData, setQuickShareData] = useState<{
     phoneNumber: string;
     message: string;
@@ -230,7 +222,11 @@ export const NumberEntryScreen: React.FC = () => {
     }
 
     // Check full expression e.g. 58=3000/2000
-    const fullInput = inputNumber.includes('=') ? inputNumber : inputAmount.includes('=') ? inputAmount : null;
+    const fullInput = inputNumber.includes('=')
+      ? inputNumber
+      : inputAmount.includes('=')
+      ? inputAmount
+      : null;
     if (fullInput) {
       const parsed = parseBetInput(fullInput);
       if (parsed.length > 0) {
@@ -320,7 +316,6 @@ export const NumberEntryScreen: React.FC = () => {
       for (const num of generated) {
         const rev = reverse2D(num);
         if (rev === num) {
-          // Twin number
           const comb = directAmount + reverseAmount;
           if (blocked.has(num)) blockedFound.push(num);
           else betList.push({ id: Date.now() + Math.random(), n: num, a: comb });
@@ -424,44 +419,41 @@ export const NumberEntryScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#F4F7F6] select-none">
+    <div className="flex flex-col h-screen bg-[#F5F7F6] select-none">
       {/* Top Header */}
-      <header className="bg-[#235347] text-white px-3 py-2.5 shadow-md flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 flex-1 truncate">
-          <div className="w-7 h-7 rounded-full bg-[#0C4E3E] border border-[#FEC72E] flex items-center justify-center shrink-0 overflow-hidden">
+      <header className="bg-[#065240] text-white px-3.5 py-3 shadow-sm flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-[#043E30] border border-[#FEC72E] flex items-center justify-center shrink-0 overflow-hidden">
             <img src="/ic_lucky2d_logo.png" alt="Lucky2D" className="w-full h-full object-cover" />
           </div>
-          <span className="font-bold text-sm truncate">
+          <span className="font-medium text-[17px] truncate">
             နေ့စွဲ : {selectedDate} , အကြိမ် : {hasRound ? selectedSession : 'အကြိမ်မရှိ'}
           </span>
         </div>
         <button
           type="button"
           onClick={goBack}
-          className="p-1.5 rounded-full hover:bg-white/10 active:bg-white/20"
+          className="p-1.5 rounded-full hover:bg-white/10 active:bg-white/20 shrink-0"
           title="ပိတ်မည်"
         >
-          <X className="w-5 h-5 text-white" />
+          <X className="w-6 h-6 text-white" />
         </button>
       </header>
 
       {/* Agent Info Strip */}
-      <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between shrink-0 text-xs">
-        <div
+      <div className="bg-white border-b border-[#DCE5E1] px-4 py-3 flex items-center justify-between shrink-0">
+        <button
+          type="button"
           onClick={() => setShowAgentPicker(true)}
-          className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 font-bold"
+          className="text-left text-[15px] text-slate-900 hover:opacity-80 truncate max-w-[45%]"
         >
-          <Users className="w-4 h-4 text-[#235347]" />
-          <span className="text-slate-600">ထိုးသူ :</span>
-          <span className="text-[#235347] text-sm">
-            {entryAgent ? entryAgent.name : 'ရွေးချယ်ပါ'}
-          </span>
-        </div>
+          ထိုးသူ : {entryAgent ? entryAgent.name : 'ရွေးချယ်ပါ'}
+        </button>
 
         <button
           type="button"
           onClick={() => openAgentVouchers(entryAgent ? entryAgent.id : null, entryAgent?.name)}
-          className="text-[#235347] font-semibold hover:underline"
+          className="text-[15px] text-[#065240] font-medium hover:underline shrink-0"
         >
           ဘောင်ချာများ ကြည့်ရန် နှိပ်ပါ
         </button>
@@ -470,7 +462,7 @@ export const NumberEntryScreen: React.FC = () => {
       {/* Main Entered Bets Table */}
       <div className="flex-1 flex flex-col min-h-0 bg-white">
         {/* Table Header */}
-        <div className="bg-[#EAF0EE] border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs font-bold text-slate-800 shrink-0">
+        <div className="bg-[#EDF3F0] border-b border-[#DCE5E1] px-4 py-2.5 flex items-center justify-between text-[15px] font-medium text-slate-900 shrink-0">
           <span className="w-12">စဉ်</span>
           <span className="flex-1 text-center">ဂဏန်း</span>
           <span className="w-24 text-right">ပမာဏ</span>
@@ -479,11 +471,11 @@ export const NumberEntryScreen: React.FC = () => {
         {/* Bets List */}
         <div className="flex-1 overflow-y-auto">
           {entryItems.length === 0 ? (
-            <div className="h-full flex items-center justify-center p-6 text-sm text-slate-400 font-medium text-center">
-              ဂဏန်းနှင့် ပမာဏ ရိုက်ထည့်ပါ (သို့မဟုတ် အမြန်ထိုး အသုံးပြုပါ)
+            <div className="h-full flex items-center justify-center p-6 text-[17px] text-slate-500 text-center">
+              ဂဏန်းနှင့် ပမာဏ ရိုက်ထည့်ပါ
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-[#EAF0EE]">
               {entryItems.map((item, index) => (
                 <div
                   key={item.id}
@@ -492,18 +484,18 @@ export const NumberEntryScreen: React.FC = () => {
                     setEditNumInput(item.n);
                     setEditAmtInput(String(item.a));
                   }}
-                  className={`px-4 py-2.5 flex items-center justify-between text-sm cursor-pointer hover:bg-slate-50 ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-[#F9FBFA]'
+                  className={`px-4 py-3 flex items-center justify-between cursor-pointer active:bg-emerald-50/40 ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-[#F1F6F4]'
                   }`}
                 >
-                  <span className="w-12 text-xs font-semibold text-slate-500">
+                  <span className="w-12 text-[15px] text-slate-700">
                     {index + 1}.
                   </span>
-                  <span className="flex-1 text-center font-bold text-base text-[#235347] font-mono">
+                  <span className="flex-1 text-center font-medium text-[18px] text-[#065240]">
                     {item.n}
                   </span>
-                  <div className="w-24 text-right font-bold text-slate-900 font-mono">
-                    {fmt(item.a)}
+                  <div className="w-24 text-right font-medium text-[16px] text-slate-900">
+                    {item.a}
                   </div>
                 </div>
               ))}
@@ -513,23 +505,21 @@ export const NumberEntryScreen: React.FC = () => {
         </div>
 
         {/* Action Summary Bar under the table */}
-        <div className="bg-[#EAF0EE] border-t border-slate-300 px-3 py-2 flex items-center justify-between gap-2 shrink-0">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                soundManager.playTouchClick();
-                setQuickEntryMode(1);
-              }}
-              className="h-9 px-3 bg-[#235347] hover:bg-[#183B32] text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-sm"
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>အမြန်ထိုး</span>
-            </button>
-          </div>
+        <div className="bg-[#EEF3F1] border-t border-[#DCE5E1] px-2.5 py-2 flex items-center justify-between gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              soundManager.playTouchClick();
+              setQuickEntryMode(1);
+            }}
+            className="h-10 px-3.5 bg-[#065240] hover:bg-[#054435] text-white rounded-xl font-medium text-[14px] flex items-center gap-1.5 shadow-sm shrink-0"
+          >
+            <Zap className="w-4 h-4 fill-white text-white" />
+            <span>အမြန်ထိုး</span>
+          </button>
 
-          <div className="flex-1 text-center text-xs font-bold text-slate-800 truncate px-1">
-            စုစုပေါင်း = {fmt(totalAmount)} ({entryItems.length} ကွက်)
+          <div className="flex-1 text-center text-[15px] font-medium text-slate-900 truncate px-1">
+            စုစုပေါင်း = {totalAmount} ({entryItems.length} ကွက်)
           </div>
 
           <button
@@ -539,7 +529,11 @@ export const NumberEntryScreen: React.FC = () => {
               soundManager.playTouchClick();
               setShowConfirmBetDialog(true);
             }}
-            className="h-9 px-4 bg-[#2E7D32] hover:bg-emerald-800 disabled:bg-slate-300 text-white rounded-lg font-bold text-xs shadow-sm flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+            className={`h-10 px-5 rounded-xl font-bold text-[15px] shadow-sm flex items-center justify-center shrink-0 transition ${
+              entryItems.length > 0
+                ? 'bg-[#0A8819] hover:bg-[#087215] text-white cursor-pointer'
+                : 'bg-[#DFE6E3] text-slate-800 cursor-not-allowed'
+            }`}
           >
             <span>ထိုးရန်</span>
           </button>
@@ -547,8 +541,8 @@ export const NumberEntryScreen: React.FC = () => {
       </div>
 
       {/* Pinned Bottom Keypad */}
-      <div className="bg-white border-t border-slate-300 p-2 space-y-1.5 shrink-0">
-        {/* 3 Preview Cells (ဂဏန်း | အမျိုးအစား | ပမာဏ) */}
+      <div className="bg-white border-t border-[#DCE5E1] px-2 pt-2 pb-2.5 space-y-1.5 shrink-0">
+        {/* 3 Single-Line Preview Cells (ဂဏန်း | ဒဲ့ | ပမာဏ) */}
         <div className="grid grid-cols-3 gap-1.5">
           {/* Cell 1: Number */}
           <button
@@ -558,16 +552,13 @@ export const NumberEntryScreen: React.FC = () => {
               setActiveField('NUMBER');
               setShouldOverwriteAmount(false);
             }}
-            className={`p-2 rounded-xl text-center border transition-all ${
+            className={`h-11 px-2 rounded-xl flex items-center justify-center text-[16px] transition-all ${
               activeField === 'NUMBER'
-                ? 'bg-emerald-50 border-[#235347] shadow-sm'
-                : 'bg-slate-50 border-slate-200'
+                ? 'bg-[#F1F6F4] border-2 border-[#065240] text-slate-900 font-medium'
+                : 'bg-white border border-[#CBD6D1] text-slate-600'
             }`}
           >
-            <div className="text-[10px] font-bold text-slate-500">ဂဏန်း</div>
-            <div className="text-base font-extrabold text-[#235347] font-mono h-6 flex items-center justify-center">
-              {inputNumber || '-'}
-            </div>
+            <span className="truncate">{inputNumber || 'ဂဏန်း'}</span>
           </button>
 
           {/* Cell 2: Pattern */}
@@ -578,17 +569,16 @@ export const NumberEntryScreen: React.FC = () => {
               setActiveField('PATTERN');
               setShouldOverwriteAmount(false);
             }}
-            className={`p-2 rounded-xl text-center border transition-all ${
+            className={`h-11 px-2 rounded-xl flex items-center justify-center text-[16px] transition-all ${
               activeField === 'PATTERN'
-                ? 'bg-emerald-50 border-[#235347] shadow-sm'
-                : 'bg-slate-50 border-slate-200'
+                ? 'bg-[#F1F6F4] border-2 border-[#065240] text-slate-900 font-medium'
+                : 'bg-white border border-[#CBD6D1] text-slate-800'
             }`}
           >
-            <div className="text-[10px] font-bold text-slate-500">အမျိုးအစား</div>
-            <div className="text-xs font-bold text-slate-800 h-6 flex items-center justify-center truncate">
+            <span className="truncate">
               {inputPattern || 'ဒဲ့'}
-              {isReverseOn ? ' (အာ)' : ''}
-            </div>
+              {isReverseOn ? ' (R)' : ''}
+            </span>
           </button>
 
           {/* Cell 3: Amount */}
@@ -599,33 +589,32 @@ export const NumberEntryScreen: React.FC = () => {
               setActiveField('AMOUNT');
               setShouldOverwriteAmount(inputAmount.length > 0);
             }}
-            className={`p-2 rounded-xl text-center border transition-all ${
+            className={`h-11 px-2 rounded-xl flex items-center justify-center text-[16px] transition-all ${
               amountValidationError
-                ? 'bg-red-50 border-red-500'
+                ? 'bg-red-50 border-2 border-[#F42222] text-[#F42222] font-medium'
                 : activeField === 'AMOUNT'
-                ? 'bg-emerald-50 border-[#235347] shadow-sm'
-                : 'bg-slate-50 border-slate-200'
+                ? 'bg-[#F1F6F4] border-2 border-[#065240] text-slate-900 font-medium'
+                : 'bg-white border border-[#CBD6D1] text-slate-900'
             }`}
           >
-            <div className="text-[10px] font-bold text-slate-500">ပမာဏ</div>
-            <div className="text-base font-extrabold text-slate-900 font-mono h-6 flex items-center justify-center">
-              {inputAmount || '-'}
-            </div>
+            <span className={`truncate ${!inputAmount ? 'text-slate-600' : 'text-slate-900 font-medium'}`}>
+              {inputAmount || 'ပမာဏ'}
+            </span>
           </button>
         </div>
 
         {/* Scrollable Pattern Chips Row */}
-        <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar text-xs">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
           {['ဒဲ့', 'ပါဝါ', 'ညီအစ်ကို', 'ထိပ်', 'နောက်', 'အပူး', 'စုံစုံ', 'မမ', 'စုံမ', 'မစုံ', 'ဘရိတ်'].map(
             (p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => onPatternSelected(p)}
-                className={`px-3 py-1.5 rounded-lg shrink-0 font-bold transition-all ${
+                className={`h-10 px-4 rounded-xl shrink-0 text-[15px] font-medium text-white transition-all ${
                   inputPattern === p
-                    ? 'bg-[#2E7D32] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    ? 'bg-[#0A8819] shadow-sm'
+                    : 'bg-[#065240] active:bg-[#054435]'
                 }`}
               >
                 {p}
@@ -635,14 +624,14 @@ export const NumberEntryScreen: React.FC = () => {
         </div>
 
         {/* 5-Column Keypad */}
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {/* Row 1: နက္ခတ် | 1 | 2 | 3 | R */}
-          <div className="grid grid-cols-5 gap-1 text-center font-bold">
+          <div className="grid grid-cols-5 gap-1.5 text-center">
             <button
               type="button"
               onClick={() => onPatternSelected('နက္ခတ်')}
-              className={`h-11 rounded-xl text-xs flex items-center justify-center text-white ${
-                inputPattern === 'နက္ခတ်' ? 'bg-[#2E7D32]' : 'bg-[#235347]'
+              className={`h-12 rounded-xl text-[14px] font-medium flex items-center justify-center text-white ${
+                inputPattern === 'နက္ခတ်' ? 'bg-[#0A8819]' : 'bg-[#065240]'
               }`}
             >
               နက္ခတ်
@@ -650,21 +639,21 @@ export const NumberEntryScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => onKeypadNumPress('1')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               1
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('2')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               2
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('3')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               3
             </button>
@@ -674,8 +663,8 @@ export const NumberEntryScreen: React.FC = () => {
                 soundManager.playClick();
                 setIsReverseOn(!isReverseOn);
               }}
-              className={`h-11 rounded-xl text-sm flex items-center justify-center font-black ${
-                isReverseOn ? 'bg-[#2E7D32] text-white' : 'bg-[#235347] text-white'
+              className={`h-12 rounded-xl text-[17px] font-medium flex items-center justify-center text-white ${
+                isReverseOn ? 'bg-[#0A8819]' : 'bg-[#065240]'
               }`}
             >
               R
@@ -683,15 +672,15 @@ export const NumberEntryScreen: React.FC = () => {
           </div>
 
           {/* Row 2: ခွေ | 4 | 5 | 6 | / */}
-          <div className="grid grid-cols-5 gap-1 text-center font-bold">
+          <div className="grid grid-cols-5 gap-1.5 text-center">
             <button
               type="button"
               onClick={() => {
                 onPatternSelected('ခွေ');
                 setShowKwayDialog(true);
               }}
-              className={`h-11 rounded-xl text-xs flex items-center justify-center text-white ${
-                inputPattern === 'ခွေ' ? 'bg-[#2E7D32]' : 'bg-[#235347]'
+              className={`h-12 rounded-xl text-[15px] font-medium flex items-center justify-center text-white ${
+                inputPattern === 'ခွေ' ? 'bg-[#0A8819]' : 'bg-[#065240]'
               }`}
             >
               ခွေ
@@ -699,40 +688,40 @@ export const NumberEntryScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => onKeypadNumPress('4')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               4
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('5')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               5
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('6')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               6
             </button>
             <button
               type="button"
               onClick={onKeypadSlashPress}
-              className="h-11 rounded-xl bg-[#235347] text-white text-xl flex items-center justify-center font-black"
+              className="h-12 rounded-xl bg-[#065240] active:bg-[#054435] text-white text-[19px] flex items-center justify-center font-medium"
             >
               /
             </button>
           </div>
 
           {/* Row 3: အပါ | 7 | 8 | 9 | ENTER */}
-          <div className="grid grid-cols-5 gap-1 text-center font-bold">
+          <div className="grid grid-cols-5 gap-1.5 text-center">
             <button
               type="button"
               onClick={() => onPatternSelected('အပါ')}
-              className={`h-11 rounded-xl text-xs flex items-center justify-center text-white ${
-                inputPattern === 'အပါ' ? 'bg-[#2E7D32]' : 'bg-[#235347]'
+              className={`h-12 rounded-xl text-[15px] font-medium flex items-center justify-center text-white ${
+                inputPattern === 'အပါ' ? 'bg-[#0A8819]' : 'bg-[#065240]'
               }`}
             >
               အပါ
@@ -740,35 +729,35 @@ export const NumberEntryScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => onKeypadNumPress('7')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               7
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('8')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               8
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('9')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               9
             </button>
             <button
               type="button"
               onClick={onAdvanceFocusPress}
-              className="h-11 rounded-xl bg-[#235347] text-white text-xs flex items-center justify-center font-black"
+              className="h-12 rounded-xl bg-[#065240] active:bg-[#054435] text-white text-[14px] flex items-center justify-center font-medium"
             >
               ENTER
             </button>
           </div>
 
           {/* Row 4: ဖျက် | 0 | 00 | 000 | OK */}
-          <div className="grid grid-cols-5 gap-1 text-center font-bold">
+          <div className="grid grid-cols-5 gap-1.5 text-center">
             <button
               type="button"
               onClick={() => {
@@ -782,35 +771,35 @@ export const NumberEntryScreen: React.FC = () => {
                   setInputAmount((prev) => prev.slice(0, -1));
                 }
               }}
-              className="h-11 rounded-xl bg-[#D32F2F] hover:bg-red-700 text-white text-xs flex items-center justify-center font-bold"
+              className="h-12 rounded-xl bg-[#F42222] active:bg-red-700 text-white text-[16px] flex items-center justify-center font-medium"
             >
               ဖျက်
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('0')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[19px] flex items-center justify-center"
             >
               0
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('00')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-sm flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[18px] flex items-center justify-center"
             >
               00
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('000')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-xs flex items-center justify-center"
+              className="h-12 rounded-xl bg-[#E7EDEA] border border-[#D4DDD8] active:bg-[#D4DDD8] text-slate-900 text-[17px] flex items-center justify-center"
             >
               000
             </button>
             <button
               type="button"
               onClick={() => handleAddBet(false)}
-              className="h-11 rounded-xl bg-[#2E7D32] hover:bg-emerald-800 text-white text-sm flex items-center justify-center font-black shadow-md cursor-pointer"
+              className="h-12 rounded-xl bg-[#0A8819] active:bg-[#087215] text-white text-[17px] flex items-center justify-center font-medium shadow-sm cursor-pointer"
             >
               OK
             </button>
@@ -824,7 +813,7 @@ export const NumberEntryScreen: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-[#235347]" />
+                <Zap className="w-5 h-5 text-[#065240]" />
                 <h3 className="font-bold text-base text-slate-900">
                   2D ဂဏန်းများ ( အမြန်ထိုး {quickEntryMode} )
                 </h3>
@@ -848,9 +837,9 @@ export const NumberEntryScreen: React.FC = () => {
                   soundManager.playTouchClick();
                   setQuickEntryMode(1);
                 }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${
+                className={`flex-1 py-2 text-xs font-bold rounded-xl border ${
                   quickEntryMode === 1
-                    ? 'bg-[#235347] text-white border-[#235347]'
+                    ? 'bg-[#065240] text-white border-[#065240]'
                     : 'bg-slate-50 text-slate-700 border-slate-200'
                 }`}
               >
@@ -862,9 +851,9 @@ export const NumberEntryScreen: React.FC = () => {
                   soundManager.playTouchClick();
                   setQuickEntryMode(2);
                 }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${
+                className={`flex-1 py-2 text-xs font-bold rounded-xl border ${
                   quickEntryMode === 2
-                    ? 'bg-[#235347] text-white border-[#235347]'
+                    ? 'bg-[#065240] text-white border-[#065240]'
                     : 'bg-slate-50 text-slate-700 border-slate-200'
                 }`}
               >
@@ -881,7 +870,7 @@ export const NumberEntryScreen: React.FC = () => {
                   ? 'ကြေးတူရင်\n01.78=500\n\nကြေးတူ R ရင်\n01.78R500\n\nကြေးမတူရင်\n01.78=500/100'
                   : '5a500 (5 အပါ)\n6b600 (6 ဘရိတ်)\n1t500 (1 ထိပ်)\n1w500 (1 နောက်)\np3500 (ပါဝါ)\nn7500 (နက္ခတ်)\ns500 (အပူး)\nx200 (ညီကို)\n123k500 (ခွေ)'
               }
-              className="w-full p-3 font-mono text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-[#235347]"
+              className="w-full p-3 font-mono text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-[#065240]"
             />
 
             <div className="flex justify-between items-center pt-2">
@@ -895,7 +884,7 @@ export const NumberEntryScreen: React.FC = () => {
                     // Ignore
                   }
                 }}
-                className="px-3 py-1.5 text-xs font-bold text-[#235347] bg-emerald-50 hover:bg-emerald-100 rounded-lg"
+                className="px-3 py-2 text-xs font-bold text-[#065240] bg-emerald-50 hover:bg-emerald-100 rounded-xl"
               >
                 Clipboard မှ ကူးထည့်မည်
               </button>
@@ -904,14 +893,14 @@ export const NumberEntryScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setQuickEntryMode(null)}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
                 >
                   မလုပ်တော့ပါ
                 </button>
                 <button
                   type="button"
                   onClick={handleQuickEntrySubmit}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-[#235347] hover:bg-[#183B32] rounded-lg shadow-sm"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#065240] hover:bg-[#054435] rounded-xl shadow-sm"
                 >
                   ထည့်သွင်းမည်
                 </button>
@@ -926,7 +915,7 @@ export const NumberEntryScreen: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-bold text-base text-slate-900">ထိုးသူ (ကော်မရှင်) ရွေးချယ်ပါ</h3>
+              <h3 className="font-bold text-base text-[#065240]">ထိုးသူ (ကော်မရှင်) ရွေးချယ်ပါ</h3>
               <button
                 type="button"
                 onClick={() => setShowAgentPicker(false)}
@@ -952,7 +941,9 @@ export const NumberEntryScreen: React.FC = () => {
                       soundManager.playClick();
                     }}
                     className={`w-full text-left px-3 py-2.5 flex items-center justify-between hover:bg-slate-50 text-sm ${
-                      entryAgent?.id === ag.id ? 'bg-emerald-50 text-[#235347] font-bold' : 'text-slate-800'
+                      entryAgent?.id === ag.id
+                        ? 'bg-emerald-50 text-[#065240] font-bold'
+                        : 'text-slate-800'
                     }`}
                   >
                     <span>
@@ -970,7 +961,7 @@ export const NumberEntryScreen: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowAgentPicker(false)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200"
+                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200"
               >
                 ပိတ်မည်
               </button>
@@ -983,7 +974,7 @@ export const NumberEntryScreen: React.FC = () => {
       {showKwayDialog && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-base text-slate-900 text-center">
+            <h3 className="font-bold text-base text-[#065240] text-center">
               ခွေဂဏန်းများ အပူး ပါမည်လား?
             </h3>
             <p className="text-xs text-slate-500 text-center">
@@ -996,7 +987,7 @@ export const NumberEntryScreen: React.FC = () => {
                   setShowKwayDialog(false);
                   handleAddBet(true);
                 }}
-                className="flex-1 py-2.5 bg-[#235347] text-white rounded-xl font-bold text-xs shadow-sm hover:bg-[#183B32]"
+                className="flex-1 py-2.5 bg-[#065240] text-white rounded-xl font-bold text-xs shadow-sm hover:bg-[#054435]"
               >
                 အပူးပါမည်
               </button>
@@ -1015,42 +1006,37 @@ export const NumberEntryScreen: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 4: Confirm Bet Dialog (ထိုးမည်လား?) */}
+      {/* MODAL 4: Confirm Bet Dialog (ဘောင်ချာ အတည်ပြုချက် - Ref 7) */}
       {showConfirmBetDialog && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-lg text-slate-900 text-center">
-              ဘောင်ချာ အတည်ပြုပါ
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-5">
+          <div className="bg-white rounded-3xl max-w-[330px] w-full p-6 space-y-5 shadow-2xl">
+            <h3 className="font-bold text-[20px] text-[#065240] text-left">
+              ဘောင်ချာ အတည်ပြုချက်
             </h3>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">ထိုးသူ :</span>
-                <span className="font-bold text-slate-800">{entryAgent?.name}</span>
+
+            <div className="bg-[#EEF3F1] p-4 rounded-2xl border border-[#D4DFDA] space-y-3 text-[16px]">
+              <div className="text-slate-900">
+                ထိုးသူ : {entryAgent?.name || '-'}
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">ရက်စွဲ/အကြိမ် :</span>
-                <span className="font-semibold text-slate-800">
-                  {selectedDate} ({selectedSession})
-                </span>
+              <div className="text-slate-900">
+                စုစုပေါင်း : {entryItems.length} ကွက်
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">အရေအတွက် :</span>
-                <span className="font-bold text-slate-800">{entryItems.length} ကွက်</span>
-              </div>
-              <hr className="border-slate-200 my-1" />
-              <div className="flex justify-between text-base">
-                <span className="font-bold text-slate-900">စုစုပေါင်းငွေ :</span>
-                <span className="font-black text-[#235347] font-mono">{fmt(totalAmount)} ကျပ်</span>
+              <div className="text-[#065240] font-medium leading-snug">
+                စုစုပေါင်း ကျသင့်ငွေ : {totalAmount} ကျပ်
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <p className="text-[16px] text-slate-800 leading-relaxed">
+              ဤစာရင်းအား ဘောင်ချာအဖြစ် အတည်ပြုထိုးမည် သေချာပါသလား?
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => setShowConfirmBetDialog(false)}
-                className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-200"
+                className="py-3 bg-[#F42222] hover:bg-red-600 text-white rounded-xl font-medium text-[16px] shadow-sm transition cursor-pointer"
               >
-                မလုပ်တော့ပါ
+                မထိုးပါ
               </button>
               <button
                 type="button"
@@ -1073,9 +1059,9 @@ export const NumberEntryScreen: React.FC = () => {
                     }
                   }
                 }}
-                className="flex-1 py-2.5 bg-[#2E7D32] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md"
+                className="py-3 bg-[#065240] hover:bg-[#054435] text-white rounded-xl font-medium text-[16px] shadow-sm transition cursor-pointer"
               >
-                အတည်ပြုသိမ်းမည်
+                ထိုးမည်
               </button>
             </div>
           </div>
@@ -1086,8 +1072,8 @@ export const NumberEntryScreen: React.FC = () => {
       {quickShareData && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl py-4 px-3 text-center">
-              <div className="font-mono font-black text-2xl text-[#235347] tracking-wide select-text">
+            <div className="bg-[#EEF3F1] border border-[#D4DFDA] rounded-xl py-4 px-3 text-center">
+              <div className="font-mono font-black text-2xl text-[#065240] tracking-wide select-text">
                 {quickShareData.message}
               </div>
             </div>
@@ -1096,7 +1082,7 @@ export const NumberEntryScreen: React.FC = () => {
               <button
                 type="button"
                 onClick={handleQuickShareSms}
-                className="py-2.5 bg-[#2E7D32] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+                className="py-2.5 bg-[#0A8819] hover:bg-[#087215] text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
               >
                 SMS
               </button>
@@ -1134,7 +1120,7 @@ export const NumberEntryScreen: React.FC = () => {
       {editingItemIndex !== null && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-base text-slate-900">ဂဏန်း ပြင်ဆင်ရန် / ဖျက်ရန်</h3>
+            <h3 className="font-bold text-base text-[#065240]">ဂဏန်း ပြင်ဆင်ရန် / ဖျက်ရန်</h3>
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-600 block mb-1">ဂဏန်း</label>
@@ -1143,7 +1129,7 @@ export const NumberEntryScreen: React.FC = () => {
                   maxLength={2}
                   value={editNumInput}
                   onChange={(e) => setEditNumInput(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                  className="w-full px-3 py-2 border rounded-lg text-center font-mono font-bold text-lg"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-center font-mono font-bold text-lg focus:outline-none focus:border-[#065240]"
                 />
               </div>
               <div>
@@ -1152,7 +1138,7 @@ export const NumberEntryScreen: React.FC = () => {
                   type="text"
                   value={editAmtInput}
                   onChange={(e) => setEditAmtInput(e.target.value.replace(/\D/g, ''))}
-                  className="w-full px-3 py-2 border rounded-lg text-center font-mono font-bold text-lg"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-center font-mono font-bold text-lg focus:outline-none focus:border-[#065240]"
                 />
               </div>
             </div>
@@ -1164,7 +1150,7 @@ export const NumberEntryScreen: React.FC = () => {
                   deleteEntryItem(editingItemIndex);
                   setEditingItemIndex(null);
                 }}
-                className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-lg flex items-center gap-1"
+                className="px-3 py-2 bg-red-100 hover:bg-red-200 text-[#F42222] font-bold text-xs rounded-xl flex items-center gap-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>ဖျက်မည်</span>
@@ -1174,7 +1160,7 @@ export const NumberEntryScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setEditingItemIndex(null)}
-                  className="px-3 py-2 text-slate-600 text-xs font-bold hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-2 text-slate-600 text-xs font-bold hover:bg-slate-100 rounded-xl"
                 >
                   မလုပ်တော့ပါ
                 </button>
@@ -1187,7 +1173,7 @@ export const NumberEntryScreen: React.FC = () => {
                       setEditingItemIndex(null);
                     }
                   }}
-                  className="px-4 py-2 bg-[#235347] text-white text-xs font-bold rounded-lg shadow-sm"
+                  className="px-4 py-2 bg-[#065240] text-white text-xs font-bold rounded-xl shadow-sm"
                 >
                   သိမ်းမည်
                 </button>

@@ -5,9 +5,7 @@ import {
   Receipt,
   Plus,
   Calendar,
-  ChevronDown,
   Settings,
-  Sparkles,
 } from 'lucide-react';
 import { useLottery, formatDotDate } from '../context/LotteryContext';
 import { DatePickerModal } from '../components/DatePickerModal';
@@ -19,7 +17,6 @@ export const HomeScreen: React.FC = () => {
     setDate,
     selectedSession,
     setSession,
-    sessions,
     availableRounds,
     hasRound,
     navigateTo,
@@ -37,58 +34,48 @@ export const HomeScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F4F7F6]">
+    <div className="flex flex-col min-h-screen bg-[#F5F7F6]">
       {/* Top App Bar Header */}
-      <header className="bg-[#235347] text-white shadow-md px-5 py-3.5 sticky top-0 z-30">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#0C4E3E] border border-[#FEC72E] flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-              <img
-                src="/ic_lucky2d_logo.png"
-                alt="Lucky2D"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <span className="font-extrabold text-xl tracking-wide text-white">Lucky2D</span>
+      <header className="bg-[#065240] text-white shadow-sm px-4 py-3.5 sticky top-0 z-30">
+        <div className="max-w-md mx-auto flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#043E30] border border-[#FEC72E] flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+            <img
+              src="/ic_lucky2d_logo.png"
+              alt="Lucky2D"
+              className="w-full h-full object-cover"
+            />
           </div>
-
-          <div className="text-xs bg-[#183B32] border border-emerald-600/40 px-2.5 py-1 rounded-full text-emerald-200 font-medium">
-            2D မန်နေဂျာ
-          </div>
+          <span className="font-medium text-2xl tracking-normal text-white">Lucky2D</span>
         </div>
       </header>
 
-      <main className="flex-1 max-w-md w-full mx-auto p-5 flex flex-col items-center">
-        {/* Date Display Pill */}
-        <div className="flex items-center justify-center gap-2 text-[#235347] font-bold text-base mb-6 pt-1">
-          <Calendar className="w-5 h-5 text-[#235347]" />
+      <main className="flex-1 max-w-md w-full mx-auto px-6 pt-8 pb-6 flex flex-col items-center">
+        {/* Date Display */}
+        <div className="flex items-center justify-center gap-2.5 text-[#065240] font-medium text-xl mb-8">
+          <Calendar className="w-5 h-5 text-[#065240]" />
           <span>ယနေ့ - {dotDate}</span>
         </div>
 
         {/* 2x2 Grid Menu Cards (ကော်မရှင်, ဂဏန်းများ, ဘောင်ချာ, တင်ကွက်) */}
-        <div className="grid grid-cols-2 gap-4 w-full mb-6">
+        <div className="grid grid-cols-2 gap-5 w-full mb-7">
           {/* Card 1: ကော်မရှင် */}
           <button
             type="button"
             onClick={() => handleCardClick(() => navigateTo('AGENTS'))}
-            className="aspect-square bg-[#235347] hover:bg-[#183B32] active:scale-98 text-white rounded-2xl shadow-lg p-4 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer border border-emerald-800/40"
+            className="aspect-square bg-[#065240] hover:bg-[#054435] active:scale-[0.98] text-white rounded-2xl shadow-[0_6px_14px_rgba(6,82,64,0.22)] p-4 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer"
           >
-            <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center">
-              <Users className="w-8 h-8 text-white" />
-            </div>
-            <span className="font-bold text-base tracking-wide">ကော်မရှင်</span>
+            <Users className="w-12 h-12 text-white" strokeWidth={2} />
+            <span className="font-medium text-lg tracking-wide">ကော်မရှင်</span>
           </button>
 
           {/* Card 2: ဂဏန်းများ */}
           <button
             type="button"
             onClick={() => handleCardClick(() => navigateTo('NUMBERS'))}
-            className="aspect-square bg-[#235347] hover:bg-[#183B32] active:scale-98 text-white rounded-2xl shadow-lg p-4 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer border border-emerald-800/40"
+            className="aspect-square bg-[#065240] hover:bg-[#054435] active:scale-[0.98] text-white rounded-2xl shadow-[0_6px_14px_rgba(6,82,64,0.22)] p-4 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer"
           >
-            <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center">
-              <LayoutGrid className="w-8 h-8 text-white" />
-            </div>
-            <span className="font-bold text-base tracking-wide">ဂဏန်းများ</span>
+            <LayoutGrid className="w-12 h-12 text-white" strokeWidth={2} />
+            <span className="font-medium text-lg tracking-wide">ဂဏန်းများ</span>
           </button>
 
           {/* Card 3: ဘောင်ချာ */}
@@ -100,54 +87,50 @@ export const HomeScreen: React.FC = () => {
                 navigateTo('VOUCHERS');
               })
             }
-            className="aspect-square bg-[#235347] hover:bg-[#183B32] active:scale-98 text-white rounded-2xl shadow-lg p-4 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer border border-emerald-800/40"
+            className="aspect-square bg-[#065240] hover:bg-[#054435] active:scale-[0.98] text-white rounded-2xl shadow-[0_6px_14px_rgba(6,82,64,0.22)] p-4 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer"
           >
-            <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center">
-              <Receipt className="w-8 h-8 text-white" />
-            </div>
-            <span className="font-bold text-base tracking-wide">ဘောင်ချာ</span>
+            <Receipt className="w-12 h-12 text-white" strokeWidth={2} />
+            <span className="font-medium text-lg tracking-wide">ဘောင်ချာ</span>
           </button>
 
           {/* Card 4: တင်ကွက် */}
           <button
             type="button"
             onClick={() => handleCardClick(() => navigateTo('BRAKE'))}
-            className="aspect-square bg-[#235347] hover:bg-[#183B32] active:scale-98 text-white rounded-2xl shadow-lg p-4 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer border border-emerald-800/40"
+            className="aspect-square bg-[#065240] hover:bg-[#054435] active:scale-[0.98] text-white rounded-2xl shadow-[0_6px_14px_rgba(6,82,64,0.22)] p-4 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer"
           >
-            <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center">
-              <Plus className="w-8 h-8 text-white" />
-            </div>
-            <span className="font-bold text-base tracking-wide">တင်ကွက်</span>
+            <Plus className="w-12 h-12 text-white" strokeWidth={2.5} />
+            <span className="font-medium text-lg tracking-wide">တင်ကွက်</span>
           </button>
         </div>
 
-        {/* Repositioned Selection Controls directly BELOW 4-Grid Cards */}
-        <div className="flex items-center gap-2 w-full mb-6">
+        {/* Selection Controls Row directly BELOW 4-Grid Cards */}
+        <div className="flex items-center gap-3 w-full mb-7">
           {/* Left: Date Selector */}
           <button
             type="button"
             onClick={() => setShowDatePicker(true)}
-            className="flex-1 h-12 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-3 flex items-center justify-center gap-2 shadow-sm text-slate-800 font-bold text-sm cursor-pointer"
+            className="flex-[1.35] h-14 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl px-3.5 flex items-center gap-2 shadow-[0_2px_8px_rgba(0,0,0,0.08)] text-slate-900 font-normal text-[15px] cursor-pointer min-w-0"
           >
-            <Calendar className="w-4 h-4 text-[#235347]" />
+            <Calendar className="w-4 h-4 text-[#065240] shrink-0" />
             <span className="truncate">ရက်စွဲ : {dotDate}</span>
           </button>
 
           {/* Center: Round Selector */}
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <button
               type="button"
               onClick={() => setShowRoundMenu(!showRoundMenu)}
-              className="w-full h-12 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-3 flex items-center justify-between gap-1 shadow-sm text-slate-800 font-bold text-sm cursor-pointer"
+              className="w-full h-14 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl px-4 flex items-center justify-between gap-1 shadow-[0_2px_8px_rgba(0,0,0,0.08)] text-slate-900 font-normal text-[15px] cursor-pointer"
             >
               <span className="truncate">
                 {hasRound ? selectedSession : 'အကြိမ်မရှိ'}
               </span>
-              <ChevronDown className="w-4 h-4 text-[#235347] shrink-0" />
+              <span className="text-[#065240] text-xs shrink-0">▼</span>
             </button>
 
             {showRoundMenu && (
-              <div className="absolute left-0 right-0 mt-1 bg-white rounded-xl shadow-xl py-1 border border-slate-200 z-40 max-h-48 overflow-y-auto">
+              <div className="absolute left-0 right-0 mt-1.5 bg-white rounded-xl shadow-xl py-1 border border-slate-200 z-40 max-h-48 overflow-y-auto">
                 {availableRounds.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-slate-500">
                     အကြိမ် မရှိသေးပါ
@@ -163,13 +146,13 @@ export const HomeScreen: React.FC = () => {
                       }}
                       className={`w-full text-left px-4 py-2 hover:bg-slate-100 flex items-center justify-between text-sm ${
                         round === selectedSession
-                          ? 'font-bold text-[#235347] bg-emerald-50'
+                          ? 'font-bold text-[#065240] bg-emerald-50'
                           : 'text-slate-800'
                       }`}
                     >
                       <span>{round}</span>
                       {round === selectedSession && (
-                        <span className="w-2 h-2 rounded-full bg-[#235347]"></span>
+                        <span className="w-2 h-2 rounded-full bg-[#065240]"></span>
                       )}
                     </button>
                   ))
@@ -185,40 +168,15 @@ export const HomeScreen: React.FC = () => {
               soundManager.playClick();
               navigateTo('SETTINGS');
             }}
-            className="w-12 h-12 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center shadow-sm text-[#235347] shrink-0 cursor-pointer"
+            className="w-14 h-14 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] text-[#065240] shrink-0 cursor-pointer"
             title="ဆက်တင်"
           >
             <Settings className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Quick Shortcut Buttons for fast actions */}
-        <div className="w-full grid grid-cols-2 gap-2 mb-6">
-          <button
-            type="button"
-            onClick={() => {
-              soundManager.playClick();
-              navigateTo('SETTLEMENT');
-            }}
-            className="h-11 bg-white hover:bg-slate-50 border border-emerald-600/30 rounded-xl px-3 flex items-center justify-center gap-2 text-xs font-bold text-[#235347] shadow-sm"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span>ရက်ချုပ်အားလုံး</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              soundManager.playClick();
-              navigateTo('LAYOFF_HISTORY');
-            }}
-            className="h-11 bg-white hover:bg-slate-50 border border-amber-600/30 rounded-xl px-3 flex items-center justify-center gap-2 text-xs font-bold text-amber-800 shadow-sm"
-          >
-            <span>တင်ကွက်မှတ်တမ်း</span>
-          </button>
-        </div>
-
-        <div className="mt-auto pt-6 text-center text-xs font-semibold text-slate-500">
+        {/* Footer Brand */}
+        <div className="text-center text-[15px] font-normal text-slate-500">
           Power by Lcky2d3d ShweKhinMyay
         </div>
       </main>

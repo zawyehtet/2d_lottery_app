@@ -2,16 +2,25 @@
 
 @layer base {
   :root {
-    --color-lucky-bg: #F4F7F6;
+    --color-lucky-bg: #F5F7F6;
     --color-lucky-card: #FFFFFF;
-    --color-lucky-card-dark: #EAF0EE;
-    --color-lucky-header: #235347;
-    --color-lucky-header-dark: #183B32;
-    --color-lucky-success: #2E7D32;
-    --color-lucky-danger: #D32F2F;
-    --color-lucky-warning: #F57C00;
-    --color-lucky-border: #CBD5E1;
+    --color-lucky-card-dark: #EDF3F0;
+    --color-lucky-header: #065240;
+    --color-lucky-header-dark: #043E30;
+    --color-lucky-success: #0A8819;
+    --color-lucky-danger: #F42222;
+    --color-lucky-warning: #FA7400;
+    --color-lucky-border: #D4DDD8;
   }
+}
+
+/* Hide scrollbars on horizontal pattern chip strip */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom mobile scrollbar styling */

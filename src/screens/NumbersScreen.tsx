@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useLottery, fmt, formatDotDate } from '../context/LotteryContext';
+import { useLottery, formatDotDate } from '../context/LotteryContext';
 import { Header } from '../components/Header';
 import { RoundRequiredHelperBanner } from '../components/RoundRequiredHelperBanner';
-import { Search, Trophy, Users, X, Info } from 'lucide-react';
+import { Search, Users, X, Info } from 'lucide-react';
 import { NumberSummary, NumberAgentBreakdownItem } from '../types';
 import { soundManager } from '../util/soundManager';
 
@@ -37,11 +37,6 @@ export const NumbersScreen: React.FC = () => {
     return sortedNumbers.reduce((sum, item) => sum + item.totalBet, 0);
   }, [sortedNumbers]);
 
-  const winningSummary = useMemo(() => {
-    if (!currentWinningNumber) return null;
-    return sortedNumbers.find((item) => item.n === currentWinningNumber) || null;
-  }, [sortedNumbers, currentWinningNumber]);
-
   // Breakdown for modal
   const agentBreakdown = useMemo((): NumberAgentBreakdownItem[] => {
     if (!selectedNumber) return [];
@@ -54,85 +49,47 @@ export const NumbersScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F4F7F5]">
-      <Header title="ဂဏန်းများ စာရင်း" showBack />
+    <div className="flex flex-col h-screen bg-[#F5F7F6] select-none">
+      <Header title="ဂဏန်းများ" showBack />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col gap-4">
+      <main className="flex-1 min-h-0 max-w-2xl w-full mx-auto px-3 pt-3 pb-3 flex flex-col gap-3">
         <RoundRequiredHelperBanner />
 
-        {/* Top Info Banner / Winning Number Banner */}
-        {currentWinningNumber ? (
-          <div className="bg-amber-100 border border-amber-300 rounded-xl p-3 flex items-center justify-between text-amber-900 shadow-sm">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-600" />
-              <div>
-                <span className="font-semibold text-sm">ပေါက်ဂဏန်း : </span>
-                <span className="text-xl font-bold font-mono tracking-wider ml-1 text-red-600">
-                  {currentWinningNumber}
-                </span>
-              </div>
-            </div>
-            {winningSummary && (
-              <div className="text-right">
-                <span className="text-xs text-amber-800">ထိုးငွေ : </span>
-                <span className="text-sm font-bold text-red-700 ml-1">
-                  {fmt(winningSummary.totalBet)} Ks
-                </span>
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        {/* Search Bar & Summary Card */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-900/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="ဂဏန်းရှာဖွေရန် (ဥပမာ- 05)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#235347] focus:bg-white"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between md:justify-end gap-4 text-xs md:text-sm font-medium text-gray-600">
-            <div>
-              <span>ထိုးထားသောဂဏန်း: </span>
-              <span className="font-bold text-[#235347] font-mono text-base">
-                {sortedNumbers.filter((x) => x.totalBet > 0).length}
-              </span>
-            </div>
-            <div className="h-4 w-px bg-gray-300" />
-            <div>
-              <span>စုစုပေါင်းငွေ: </span>
-              <span className="font-bold text-[#235347] font-mono text-base">
-                {fmt(totalBetsAmount)} Ks
-              </span>
-            </div>
-          </div>
+        {/* Search Input */}
+        <div className="relative shrink-0">
+          <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="ဂဏန်း ရှာရန်"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-12 pr-10 py-3.5 text-[15px] bg-white border border-[#CBD6D1] rounded-2xl text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-[#065240]"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* 3-Column Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-emerald-900/10 overflow-hidden flex flex-col flex-1">
-          <div className="grid grid-cols-12 bg-[#235347] text-white text-xs font-semibold py-3 px-4">
-            <div className="col-span-2 text-center">စဉ်</div>
-            <div className="col-span-5 text-center">ဂဏန်း</div>
-            <div className="col-span-5 text-right pr-2">ထိုးငွေပမာဏ</div>
+        {/* 3-Column Numbers Table Card with Sticky Bottom Total Bar */}
+        <div className="bg-white rounded-2xl shadow-sm border border-[#DCE5E1] overflow-hidden flex flex-col flex-1 min-h-0">
+          {/* Dark-Green Table Header */}
+          <div className="bg-[#065240] text-white text-[15px] font-medium py-3.5 px-4 flex items-center justify-between shrink-0">
+            <div className="w-16">အမှတ်စဉ်</div>
+            <div className="flex-1 text-center">ဂဏန်း</div>
+            <div className="w-24 text-right">ပမာဏ</div>
           </div>
 
-          <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
+          {/* Scrollable 100 Rows */}
+          <div className="flex-1 overflow-y-auto divide-y divide-[#EEF3F1]">
             {filteredNumbers.length === 0 ? (
-              <div className="py-12 text-center text-gray-400 text-sm">
+              <div className="py-12 text-center text-slate-400 text-sm">
                 ဂဏန်း မရှိပါ
               </div>
             ) : (
@@ -143,37 +100,48 @@ export const NumbersScreen: React.FC = () => {
                   <div
                     key={item.n}
                     onClick={() => handleRowClick(item)}
-                    className={`grid grid-cols-12 items-center py-2.5 px-4 cursor-pointer transition-colors text-sm font-mono ${
+                    className={`px-4 py-3.5 flex items-center justify-between cursor-pointer transition-colors ${
                       isWinning
-                        ? 'bg-amber-100/90 hover:bg-amber-100 border-l-4 border-l-red-500'
+                        ? 'bg-amber-100/90 border-l-4 border-l-[#F42222]'
                         : index % 2 === 1
-                        ? 'bg-[#EAF0EE]/30 hover:bg-[#EAF0EE]/70'
-                        : 'bg-white hover:bg-gray-50'
+                        ? 'bg-[#EDF3F0]'
+                        : 'bg-white'
                     }`}
                   >
-                    <div className="col-span-2 text-center text-xs text-gray-500 font-sans">
-                      {index + 1}
+                    <div className="w-16 text-[15px] text-slate-800">
+                      {index + 1}.
                     </div>
-                    <div className="col-span-5 text-center flex items-center justify-center gap-2">
-                      <span className={`text-base font-bold ${isWinning ? 'text-red-600' : 'text-gray-900'}`}>
+                    <div className="flex-1 text-center flex items-center justify-center gap-2">
+                      <span
+                        className={`text-[18px] font-medium ${
+                          isWinning ? 'text-[#F42222] font-bold' : 'text-[#065240]'
+                        }`}
+                      >
                         {item.n}
                       </span>
                       {isWinning && (
-                        <span className="text-[10px] bg-red-600 text-white font-sans px-1.5 py-0.5 rounded font-bold">
+                        <span className="text-[10px] bg-[#F42222] text-white px-1.5 py-0.5 rounded font-bold">
                           ပေါက်သီး
                         </span>
                       )}
                     </div>
-                    <div className="col-span-5 text-right pr-2 flex items-center justify-end gap-1.5">
-                      <span className={`font-bold ${isWinning ? 'text-red-700' : 'text-[#235347]'}`}>
-                        {fmt(item.totalBet)}
-                      </span>
-                      <span className="text-[11px] font-sans text-gray-500">Ks</span>
+                    <div
+                      className={`w-24 text-right text-[17px] font-medium ${
+                        isWinning ? 'text-[#F42222] font-bold' : 'text-slate-900'
+                      }`}
+                    >
+                      {item.totalBet}
                     </div>
                   </div>
                 );
               })
             )}
+          </div>
+
+          {/* Dark-Green Bottom Total Bar */}
+          <div className="bg-[#065240] text-white px-4 py-3.5 flex items-center justify-between shrink-0">
+            <span className="text-[17px] font-medium">စုစုပေါင်း:</span>
+            <span className="text-[19px] font-medium">{totalBetsAmount}</span>
           </div>
         </div>
       </main>
@@ -181,18 +149,19 @@ export const NumbersScreen: React.FC = () => {
       {/* Agent Breakdown Modal for Selected Number */}
       {selectedNumber && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-emerald-900/10 flex flex-col max-h-[85vh]">
-            <div className="bg-[#235347] text-white p-4 flex items-center justify-between">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[85vh]">
+            <div className="bg-[#065240] text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Info className="w-5 h-5 text-emerald-300" />
+                <Info className="w-5 h-5 text-emerald-200" />
                 <div>
                   <h3 className="font-bold text-base">ဂဏန်း {selectedNumber} ၏ အသေးစိတ်</h3>
-                  <p className="text-xs text-emerald-200">
-                    {dotDate} ({selectedSession || 'အပိုင်းမရွေးရသေး'})
+                  <p className="text-xs text-white/80">
+                    {dotDate} ({selectedSession || 'အကြိမ်မရှိ'})
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedNumber(null)}
                 className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10"
               >
@@ -202,24 +171,29 @@ export const NumbersScreen: React.FC = () => {
 
             <div className="p-4 flex-1 overflow-y-auto">
               <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-[#235347]" /> ကိုယ်စားလှယ်များအလိုက် ထိုးကြေး
+                <Users className="w-4 h-4 text-[#065240]" /> ကော်မရှင်များအလိုက် ထိုးကြေး
               </h4>
 
               <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
                 <div className="grid grid-cols-12 bg-gray-100 text-[11px] font-semibold text-gray-600 py-2 px-3">
-                  <div className="col-span-7">ကိုယ်စားလှယ်</div>
-                  <div className="col-span-5 text-right">ငွေပမာဏ</div>
+                  <div className="col-span-7">အမည်</div>
+                  <div className="col-span-5 text-right">ပမာဏ</div>
                 </div>
                 {agentBreakdown.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-gray-400">အချက်အလက် မရှိပါ</div>
+                  <div className="p-4 text-center text-xs text-gray-400">
+                    အချက်အလက် မရှိပါ
+                  </div>
                 ) : (
                   agentBreakdown.map((agentItem) => (
-                    <div key={agentItem.agentId} className="grid grid-cols-12 py-2.5 px-3 text-xs items-center">
+                    <div
+                      key={agentItem.agentId}
+                      className="grid grid-cols-12 py-2.5 px-3 text-xs items-center"
+                    >
                       <div className="col-span-7 font-medium text-gray-800">
                         {agentItem.agentName}
                       </div>
-                      <div className="col-span-5 text-right font-mono font-bold text-[#235347]">
-                        {fmt(agentItem.betOnNumber)} Ks
+                      <div className="col-span-5 text-right font-mono font-bold text-[#065240]">
+                        {agentItem.betOnNumber}
                       </div>
                     </div>
                   ))
@@ -229,6 +203,7 @@ export const NumbersScreen: React.FC = () => {
 
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
               <button
+                type="button"
                 onClick={() => setSelectedNumber(null)}
                 className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-semibold rounded-xl transition"
               >
