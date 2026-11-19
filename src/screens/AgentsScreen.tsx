@@ -267,9 +267,9 @@ export const AgentsScreen: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
           <form
             onSubmit={handleSave}
-            className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-emerald-900/10 flex flex-col"
+            className="bg-white rounded-2xl max-w-sm w-full max-h-[90vh] shadow-2xl overflow-hidden border border-emerald-900/10 flex flex-col"
           >
-            <div className="bg-[#235347] text-white p-4 flex items-center justify-between">
+            <div className="bg-[#235347] text-white p-4 flex items-center justify-between shrink-0">
               <h3 className="font-bold text-sm">
                 {editingAgent ? 'ကိုယ်စားလှယ် အချက်အလက်ပြင်ဆင်မည်' : 'ကိုယ်စားလှယ် အသစ်ထည့်သွင်းမည်'}
               </h3>
@@ -282,7 +282,7 @@ export const AgentsScreen: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-4 flex flex-col gap-3">
+            <div className="p-4 flex flex-col gap-3 overflow-y-auto">
               <div>
                 <label className="text-xs font-semibold text-gray-700 block mb-1">
                   ကိုယ်စားလှယ် အမည် <span className="text-red-500">*</span>

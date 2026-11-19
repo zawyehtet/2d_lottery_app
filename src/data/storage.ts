@@ -142,14 +142,22 @@ export function loadAgentsForDateAndRound(date: string, round: string): Agent[] 
 export function insertOrUpdateAgentForSession(date: string, round: string, agent: Agent): Agent[] {
   const asciiDate = toAsciiDigits(date);
   const all = loadAgents();
-  const existingIdx = all.findIndex(
+  let existingIdx = all.findIndex(
     (a) => toAsciiDigits(a.date) === asciiDate && a.roundNumber === round && a.id === agent.id
   );
-  const updatedAgent = { ...agent, date: asciiDate, roundNumber: round };
+  if (existingIdx === -1) {
+    existingIdx = all.findIndex((a) => a.id === agent.id);
+  }
   if (existingIdx !== -1) {
-    all[existingIdx] = updatedAgent;
+    const existing = all[existingIdx];
+    all[existingIdx] = {
+      ...existing,
+      ...agent,
+      date: existing.date ? toAsciiDigits(existing.date) : asciiDate,
+      roundNumber: existing.roundNumber || round,
+    };
   } else {
-    all.push(updatedAgent);
+    all.push({ ...agent, date: asciiDate, roundNumber: round });
   }
   saveAgents(all);
   return all.filter((a) => toAsciiDigits(a.date) === asciiDate && a.roundNumber === round);
@@ -158,9 +166,7 @@ export function insertOrUpdateAgentForSession(date: string, round: string, agent
 export function deleteAgentBySession(date: string, round: string, agentId: number): Agent[] {
   const asciiDate = toAsciiDigits(date);
   const all = loadAgents();
-  const filtered = all.filter(
-    (a) => !(toAsciiDigits(a.date) === asciiDate && a.roundNumber === round && a.id === agentId)
-  );
+  const filtered = all.filter((a) => a.id !== agentId);
   saveAgents(filtered);
   return filtered.filter((a) => toAsciiDigits(a.date) === asciiDate && a.roundNumber === round);
 }

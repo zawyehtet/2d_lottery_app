@@ -1069,7 +1069,11 @@ export const NumberEntryScreen: React.FC = () => {
                     agents.find((a) => a.id === entryAgent?.id) || entryAgent;
                   const savedVoucher = commitCurrentVoucher();
                   if (savedVoucher) {
-                    const phone = (currentAgent?.phoneNumber || '').trim();
+                    const phone = (
+                      currentAgent?.phoneNumber ||
+                      entryAgent?.phoneNumber ||
+                      ''
+                    ).trim();
                     if (phone !== '') {
                       const slipTotal = Math.round(
                         savedVoucher.items.reduce((sum, item) => sum + item.a, 0)
@@ -1159,7 +1163,7 @@ export const NumberEntryScreen: React.FC = () => {
 
       {/* MODAL 6: Conditional Quick Share Popup */}
       {quickShareData && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-2xl border border-slate-200">
             <div className="bg-slate-50 border border-slate-200 rounded-xl py-4 px-3 text-center">
               <div className="text-2xl font-black font-mono text-[#235347] tracking-wide select-text">
