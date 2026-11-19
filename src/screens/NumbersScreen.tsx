@@ -73,10 +73,10 @@ export const NumbersScreen: React.FC = () => {
               </div>
             </div>
             {winningSummary && (
-              <div className="text-right">
+              <div className="text-right shrink-0 whitespace-nowrap">
                 <span className="text-xs text-amber-800">ထိုးငွေ : </span>
-                <span className="text-sm font-bold text-red-700 ml-1">
-                  {fmt(winningSummary.totalBet)} Ks
+                <span className="text-sm font-bold font-mono tabular-nums text-red-700 ml-1">
+                  {fmt(winningSummary.totalBet)}
                 </span>
               </div>
             )}
@@ -84,8 +84,8 @@ export const NumbersScreen: React.FC = () => {
         ) : null}
 
         {/* Search Bar & Summary Card */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-900/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="relative flex-1">
+        <div className="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-emerald-900/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -93,10 +93,11 @@ export const NumbersScreen: React.FC = () => {
               placeholder="ဂဏန်းရှာဖွေရန် (ဥပမာ- 05)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#235347] focus:bg-white"
+              className="w-full pl-10 pr-9 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#235347] focus:bg-white select-text"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
               >
@@ -105,18 +106,18 @@ export const NumbersScreen: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center justify-between md:justify-end gap-4 text-xs md:text-sm font-medium text-gray-600">
-            <div>
+          <div className="flex items-center justify-between md:justify-end gap-3 text-xs sm:text-sm font-medium text-gray-600">
+            <div className="whitespace-nowrap">
               <span>ထိုးထားသောဂဏန်း: </span>
-              <span className="font-bold text-[#235347] font-mono text-base">
+              <span className="font-bold text-[#235347] font-mono tabular-nums text-sm sm:text-base">
                 {sortedNumbers.filter((x) => x.totalBet > 0).length}
               </span>
             </div>
-            <div className="h-4 w-px bg-gray-300" />
-            <div>
+            <div className="h-4 w-px bg-gray-300 shrink-0" />
+            <div className="whitespace-nowrap">
               <span>စုစုပေါင်းငွေ: </span>
-              <span className="font-bold text-[#235347] font-mono text-base">
-                {fmt(totalBetsAmount)} Ks
+              <span className="font-bold text-[#235347] font-mono tabular-nums text-sm sm:text-base">
+                {fmt(totalBetsAmount)}
               </span>
             </div>
           </div>
@@ -151,24 +152,23 @@ export const NumbersScreen: React.FC = () => {
                         : 'bg-white hover:bg-gray-50'
                     }`}
                   >
-                    <div className="col-span-2 text-center text-xs text-gray-500 font-sans">
+                    <div className="col-span-2 text-center text-xs text-gray-500 font-sans tabular-nums">
                       {index + 1}
                     </div>
                     <div className="col-span-5 text-center flex items-center justify-center gap-2">
-                      <span className={`text-base font-bold ${isWinning ? 'text-red-600' : 'text-gray-900'}`}>
+                      <span className={`text-base font-bold tabular-nums ${isWinning ? 'text-red-600' : 'text-gray-900'}`}>
                         {item.n}
                       </span>
                       {isWinning && (
-                        <span className="text-[10px] bg-red-600 text-white font-sans px-1.5 py-0.5 rounded font-bold">
+                        <span className="text-[10px] bg-red-600 text-white font-sans px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
                           ပေါက်သီး
                         </span>
                       )}
                     </div>
-                    <div className="col-span-5 text-right pr-2 flex items-center justify-end gap-1.5">
-                      <span className={`font-bold ${isWinning ? 'text-red-700' : 'text-[#235347]'}`}>
+                    <div className="col-span-5 text-right pr-2 flex items-center justify-end">
+                      <span className={`font-bold tabular-nums ${isWinning ? 'text-red-700' : 'text-[#235347]'}`}>
                         {fmt(item.totalBet)}
                       </span>
-                      <span className="text-[11px] font-sans text-gray-500">Ks</span>
                     </div>
                   </div>
                 );
@@ -215,11 +215,11 @@ export const NumbersScreen: React.FC = () => {
                 ) : (
                   agentBreakdown.map((agentItem) => (
                     <div key={agentItem.agentId} className="grid grid-cols-12 py-2.5 px-3 text-xs items-center">
-                      <div className="col-span-7 font-medium text-gray-800">
+                      <div className="col-span-7 font-medium text-gray-800 truncate pr-2">
                         {agentItem.agentName}
                       </div>
-                      <div className="col-span-5 text-right font-mono font-bold text-[#235347]">
-                        {fmt(agentItem.betOnNumber)} Ks
+                      <div className="col-span-5 text-right font-mono tabular-nums font-bold text-[#235347]">
+                        {fmt(agentItem.betOnNumber)}
                       </div>
                     </div>
                   ))
@@ -229,8 +229,9 @@ export const NumbersScreen: React.FC = () => {
 
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
               <button
+                type="button"
                 onClick={() => setSelectedNumber(null)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-semibold rounded-xl transition"
+                className="px-5 py-2 bg-[#235347] hover:bg-[#1b4339] text-white text-xs font-semibold rounded-xl transition whitespace-nowrap"
               >
                 ပိတ်မည်
               </button>

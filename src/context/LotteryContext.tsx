@@ -1203,7 +1203,7 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     out += '----------------------------\n';
     const totalPL = settled.reduce((sum, x) => sum + x.profitLoss, 0);
     const sign = totalPL > 0 ? '+' : totalPL < 0 ? '-' : '';
-    out += `စုစုပေါင်း အမြတ်ငွေ : ${sign}${fmt(Math.abs(totalPL))} ကျပ်\n`;
+    out += `စုစုပေါင်း အမြတ်ငွေ : ${sign}${fmt(Math.abs(totalPL))}\n`;
     out += '----------------------------';
     return out;
   }, [settled]);

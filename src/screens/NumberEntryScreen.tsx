@@ -3,10 +3,7 @@ import {
   X,
   Zap,
   Trash2,
-  Edit2,
-  Check,
-  AlertCircle,
-  HelpCircle,
+  Clipboard,
   Users,
 } from 'lucide-react';
 import { useLottery, fmt } from '../context/LotteryContext';
@@ -20,6 +17,8 @@ import {
 } from '../logic/patternAlgorithms';
 import { BetItem } from '../types';
 import { soundManager } from '../util/soundManager';
+import { useLongPress } from '../hooks/useLongPress';
+import { AlertBoxModal, AlertBoxState, AlertBoxSection } from '../components/AlertBoxModal';
 
 declare global {
   interface Window {
@@ -30,6 +29,36 @@ declare global {
     };
   }
 }
+
+interface DraftBetRowProps {
+  index: number;
+  item: BetItem;
+  onOpenEdit: () => void;
+}
+
+const DraftBetRow: React.FC<DraftBetRowProps> = ({ index, item, onOpenEdit }) => {
+  const longPressHandlers = useLongPress(onOpenEdit, onOpenEdit);
+
+  return (
+    <div
+      {...longPressHandlers}
+      className={`grid grid-cols-12 items-center px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+        index % 2 === 0 ? 'bg-white hover:bg-emerald-50/40' : 'bg-[#F8FAF9] hover:bg-emerald-50/40'
+      }`}
+      title="ပြင်ဆင်ရန် / ဖျက်ရန် နှိပ်ပါ (သို့) ဖိထားပါ"
+    >
+      <span className="col-span-2 text-center text-xs font-semibold text-slate-500 tabular-nums">
+        {index + 1}.
+      </span>
+      <span className="col-span-5 text-center font-bold text-base text-[#235347] font-mono tabular-nums">
+        {item.n}
+      </span>
+      <span className="col-span-5 text-right font-bold text-slate-900 font-mono tabular-nums pr-1">
+        {fmt(item.a)}
+      </span>
+    </div>
+  );
+};
 
 export const NumberEntryScreen: React.FC = () => {
   const {
@@ -72,12 +101,14 @@ export const NumberEntryScreen: React.FC = () => {
   const [editNumInput, setEditNumInput] = useState('');
   const [editAmtInput, setEditAmtInput] = useState('');
   const [deletingItemIndex, setDeletingItemIndex] = useState<number | null>(null);
+  const [alertBox, setAlertBox] = useState<AlertBoxState | null>(null);
   const [quickShareData, setQuickShareData] = useState<{
     phone: string;
     text: string;
   } | null>(null);
 
   const tableEndRef = useRef<HTMLDivElement>(null);
+  const quickEntryTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll on new items
   useEffect(() => {
@@ -244,7 +275,23 @@ export const NumberEntryScreen: React.FC = () => {
           }
         }
         if (blockedFound.length > 0) {
-          showToast(`မရဂဏန်း (${blockedFound.join(', ')}) ပါဝင်နေပါသည်`);
+          const uniqueBlocked = Array.from(new Set(blockedFound));
+          soundManager.playDelete();
+          setAlertBox({
+            title: 'မရဂဏန်းများ သတိပေးချက်',
+            sections: [
+              {
+                label: 'မရဂဏန်းများ (ပိတ်ဂဏန်း)',
+                reason: 'အောက်ပါဂဏန်းများသည် ပိတ်ဂဏန်းစာရင်းတွင် ပါဝင်နေသောကြောင့် ထည့်သွင်းခြင်းမှ ပယ်ဖျက်ထားပါသည်။',
+                items: uniqueBlocked,
+                tone: 'danger',
+              },
+            ],
+            acceptedNote:
+              betList.length > 0
+                ? `ကျန်ရှိသော ${betList.length} ကွက်ကို စာရင်းသို့ ထည့်သွင်းပြီးပါပြီ။`
+                : undefined,
+          });
         }
         if (betList.length > 0) {
           addEntryItems(betList);
@@ -262,7 +309,14 @@ export const NumberEntryScreen: React.FC = () => {
     const amtValidation = validateBetAmount(inputAmount);
     if (!amtValidation.isValid) {
       setAmountValidationError(true);
-      showToast('ထိုးကြေး ပမာဏ လက်မခံပါ');
+      soundManager.playDelete();
+      setAlertBox({
+        title: 'ပမာဏ မမှန်ကန်ပါ',
+        message:
+          amtValidation.error === 'TooLarge'
+            ? 'ထိုးကြေးပမာဏသည် သတ်မှတ်ထားသော အများဆုံးပမာဏထက် ကျော်လွန်နေပါသည်။'
+            : 'မှန်ကန်သော ထိုးကြေးပမာဏ ရိုက်ထည့်ပါ။',
+      });
       setActiveField('AMOUNT');
       return;
     }
@@ -342,7 +396,23 @@ export const NumberEntryScreen: React.FC = () => {
     }
 
     if (blockedFound.length > 0) {
-      showToast(`မရဂဏန်း (${Array.from(new Set(blockedFound)).join(', ')}) ပါဝင်နေပါသည်`);
+      const uniqueBlocked = Array.from(new Set(blockedFound));
+      soundManager.playDelete();
+      setAlertBox({
+        title: 'မရဂဏန်းများ သတိပေးချက်',
+        sections: [
+          {
+            label: 'မရဂဏန်းများ (ပိတ်ဂဏန်း)',
+            reason: 'အောက်ပါဂဏန်းများသည် ပိတ်ဂဏန်းစာရင်းတွင် ပါဝင်နေသောကြောင့် ထည့်သွင်းခြင်းမှ ပယ်ဖျက်ထားပါသည်။',
+            items: uniqueBlocked,
+            tone: 'danger',
+          },
+        ],
+        acceptedNote:
+          betList.length > 0
+            ? `ကျန်ရှိသော ${betList.length} ကွက်ကို စာရင်းသို့ ထည့်သွင်းပြီးပါပြီ။`
+            : undefined,
+      });
     }
 
     if (betList.length > 0) {
@@ -355,6 +425,25 @@ export const NumberEntryScreen: React.FC = () => {
     }
   };
 
+  const handleQuickEntryPaste = async () => {
+    soundManager.playClick();
+    try {
+      if (navigator.clipboard?.readText) {
+        const clip = await navigator.clipboard.readText();
+        if (clip && clip.trim()) {
+          setQuickEntryText((prev) => (prev ? `${prev}\n${clip}` : clip));
+          showToast('Clipboard မှ ကူးထည့်ပြီးပါပြီ');
+          quickEntryTextareaRef.current?.focus();
+          return;
+        }
+      }
+    } catch {
+      // Fallback to guiding manual long-press paste
+    }
+    quickEntryTextareaRef.current?.focus();
+    showToast('စာသားအကွက်ပေါ် ဖိနှိပ်ပြီး Paste လုပ်နိုင်ပါသည်');
+  };
+
   const handleQuickEntrySubmit = () => {
     soundManager.playTouchClick();
     if (!quickEntryText.trim()) return;
@@ -363,8 +452,38 @@ export const NumberEntryScreen: React.FC = () => {
         ? parseQuickEntryMode1(quickEntryText, blocked)
         : parseQuickEntryMode2(quickEntryText, blocked);
 
+    const uniqueBlocked = Array.from(new Set(res.blockedSkipped));
+    const uniqueInvalid = Array.from(new Set(res.invalidTokens));
+    const sections: AlertBoxSection[] = [];
+
+    if (uniqueBlocked.length > 0) {
+      sections.push({
+        label: 'မရဂဏန်းများ (ပိတ်ဂဏန်း)',
+        reason: 'ပိတ်ဂဏန်းစာရင်းတွင် ပါဝင်နေသောကြောင့် ပယ်ဖျက်ထားပါသည်။',
+        items: uniqueBlocked,
+        tone: 'danger',
+      });
+    }
+
+    if (uniqueInvalid.length > 0) {
+      sections.push({
+        label: 'ပယ်ဖျက်သော / ပုံစံမမှန်သော စာသားများ',
+        reason: '၂ လုံးဂဏန်း သို့မဟုတ် ငွေပမာဏ ပုံစံမမှန်ကန်သောကြောင့် ပယ်ဖျက်ထားပါသည်။',
+        items: uniqueInvalid,
+        tone: 'warning',
+      });
+    }
+
     if (res.items.length === 0) {
-      showToast('ထိုးမည့် ဂဏန်း မတွေ့ပါ');
+      soundManager.playDelete();
+      setAlertBox({
+        title: sections.length > 0 ? 'ပယ်ဖျက် / မရဂဏန်းများ သတိပေးချက်' : 'ထိုးမည့် ဂဏန်း မတွေ့ပါ',
+        message:
+          sections.length === 0
+            ? 'ထည့်သွင်းထားသော စာသားအတွင်း မှန်ကန်သည့် 2D ဂဏန်းနှင့် ပမာဏ မတွေ့ရှိပါ။'
+            : undefined,
+        sections: sections.length > 0 ? sections : undefined,
+      });
       return;
     }
 
@@ -377,7 +496,17 @@ export const NumberEntryScreen: React.FC = () => {
     addEntryItems(newItems);
     setQuickEntryMode(null);
     setQuickEntryText('');
-    showToast(`${newItems.length} ကွက် ထည့်သွင်းပြီးပါပြီ`);
+
+    if (sections.length > 0) {
+      soundManager.playDelete();
+      setAlertBox({
+        title: 'ပယ်ဖျက် / မရဂဏန်းများ သတိပေးချက်',
+        sections,
+        acceptedNote: `ကျန်ရှိသော မှန်ကန်သည့် ${newItems.length} ကွက်ကို ထည့်သွင်းပြီးပါပြီ။`,
+      });
+    } else {
+      showToast(`${newItems.length} ကွက် ထည့်သွင်းပြီးပါပြီ`);
+    }
   };
 
   const totalAmount = entryItems.reduce((sum, item) => sum + item.a, 0);
@@ -455,14 +584,14 @@ export const NumberEntryScreen: React.FC = () => {
       </header>
 
       {/* Agent Info Strip */}
-      <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between shrink-0 text-xs">
+      <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between gap-2 shrink-0 text-xs">
         <div
           onClick={() => setShowAgentPicker(true)}
-          className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 font-bold"
+          className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 font-bold min-w-0"
         >
-          <Users className="w-4 h-4 text-[#235347]" />
-          <span className="text-slate-600">ထိုးသူ :</span>
-          <span className="text-[#235347] text-sm">
+          <Users className="w-4 h-4 text-[#235347] shrink-0" />
+          <span className="text-slate-600 shrink-0">ထိုးသူ :</span>
+          <span className="text-[#235347] text-sm truncate">
             {entryAgent ? entryAgent.name : 'ရွေးချယ်ပါ'}
           </span>
         </div>
@@ -470,19 +599,19 @@ export const NumberEntryScreen: React.FC = () => {
         <button
           type="button"
           onClick={() => openAgentVouchers(entryAgent ? entryAgent.id : null, entryAgent?.name)}
-          className="text-[#235347] font-semibold hover:underline"
+          className="text-[#235347] font-semibold hover:underline whitespace-nowrap shrink-0 cursor-pointer"
         >
-          ဘောင်ချာများ ကြည့်ရန် နှိပ်ပါ
+          ဘောင်ချာများ ကြည့်ရန်
         </button>
       </div>
 
       {/* Main Entered Bets Table */}
       <div className="flex-1 flex flex-col min-h-0 bg-white">
         {/* Table Header */}
-        <div className="bg-[#EAF0EE] border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs font-bold text-slate-800 shrink-0">
-          <span className="w-12">စဉ်</span>
-          <span className="flex-1 text-center">ဂဏန်း</span>
-          <span className="w-24 text-right">ပမာဏ</span>
+        <div className="grid grid-cols-12 bg-[#EAF0EE] border-b border-slate-200 px-3 py-2 text-xs font-bold text-[#235347] shrink-0">
+          <span className="col-span-2 text-center">စဉ်</span>
+          <span className="col-span-5 text-center">ဂဏန်း</span>
+          <span className="col-span-5 text-right pr-1">ပမာဏ</span>
         </div>
 
         {/* Bets List */}
@@ -494,27 +623,17 @@ export const NumberEntryScreen: React.FC = () => {
           ) : (
             <div className="divide-y divide-slate-100">
               {entryItems.map((item, index) => (
-                <div
+                <DraftBetRow
                   key={item.id}
-                  onClick={() => {
+                  index={index}
+                  item={item}
+                  onOpenEdit={() => {
+                    soundManager.playClick();
                     setEditingItemIndex(index);
                     setEditNumInput(item.n);
                     setEditAmtInput(String(item.a));
                   }}
-                  className={`px-4 py-2.5 flex items-center justify-between text-sm cursor-pointer hover:bg-slate-50 ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-[#F9FBFA]'
-                  }`}
-                >
-                  <span className="w-12 text-xs font-semibold text-slate-500">
-                    {index + 1}.
-                  </span>
-                  <span className="flex-1 text-center font-bold text-base text-[#235347] font-mono">
-                    {item.n}
-                  </span>
-                  <div className="w-24 text-right font-bold text-slate-900 font-mono">
-                    {fmt(item.a)}
-                  </div>
-                </div>
+                />
               ))}
               <div ref={tableEndRef} />
             </div>
@@ -522,23 +641,21 @@ export const NumberEntryScreen: React.FC = () => {
         </div>
 
         {/* Action Summary Bar under the table */}
-        <div className="bg-[#EAF0EE] border-t border-slate-300 px-3 py-2 flex items-center justify-between gap-2 shrink-0">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                soundManager.playTouchClick();
-                setQuickEntryMode(1);
-              }}
-              className="h-9 px-3 bg-[#235347] hover:bg-[#183B32] text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-sm"
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>အမြန်ထိုး</span>
-            </button>
-          </div>
+        <div className="bg-[#EAF0EE] border-t border-slate-300 px-2.5 py-2 flex items-center justify-between gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              soundManager.playTouchClick();
+              setQuickEntryMode(1);
+            }}
+            className="h-9 px-2.5 sm:px-3 bg-[#235347] hover:bg-[#183B32] text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5 shrink-0" />
+            <span>အမြန်ထိုး</span>
+          </button>
 
-          <div className="flex-1 text-center text-xs font-bold text-slate-800 truncate px-1">
-            စုစုပေါင်း = {fmt(totalAmount)} ({entryItems.length} ကွက်)
+          <div className="flex-1 min-w-0 text-center text-xs font-bold text-slate-800 truncate font-mono tabular-nums">
+            ပေါင်း: {fmt(totalAmount)} ({entryItems.length} ကွက်)
           </div>
 
           <button
@@ -548,7 +665,7 @@ export const NumberEntryScreen: React.FC = () => {
               soundManager.playTouchClick();
               setShowConfirmBetDialog(true);
             }}
-            className="h-9 px-4 bg-[#2E7D32] hover:bg-emerald-800 disabled:bg-slate-300 text-white rounded-lg font-bold text-xs shadow-sm flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+            className="h-9 px-3.5 sm:px-4 bg-[#2E7D32] hover:bg-emerald-800 disabled:bg-slate-300 text-white rounded-lg font-bold text-xs shadow-sm flex items-center justify-center whitespace-nowrap shrink-0 cursor-pointer disabled:cursor-not-allowed"
           >
             <span>ထိုးရန်</span>
           </button>
@@ -631,7 +748,7 @@ export const NumberEntryScreen: React.FC = () => {
                 key={p}
                 type="button"
                 onClick={() => onPatternSelected(p)}
-                className={`px-3 py-1.5 rounded-lg shrink-0 font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg shrink-0 whitespace-nowrap font-bold transition-all cursor-pointer ${
                   inputPattern === p
                     ? 'bg-[#2E7D32] text-white shadow-sm'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -650,7 +767,7 @@ export const NumberEntryScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => onPatternSelected('နက္ခတ်')}
-              className={`h-11 rounded-xl text-xs flex items-center justify-center text-white ${
+              className={`h-11 px-1 rounded-xl text-[11px] sm:text-xs whitespace-nowrap overflow-hidden flex items-center justify-center text-white cursor-pointer ${
                 inputPattern === 'နက္ခတ်' ? 'bg-[#2E7D32]' : 'bg-[#235347]'
               }`}
             >
@@ -659,21 +776,21 @@ export const NumberEntryScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => onKeypadNumPress('1')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               1
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('2')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               2
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('3')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               3
             </button>
@@ -683,7 +800,7 @@ export const NumberEntryScreen: React.FC = () => {
                 soundManager.playClick();
                 setIsReverseOn(!isReverseOn);
               }}
-              className={`h-11 rounded-xl text-sm flex items-center justify-center font-black ${
+              className={`h-11 rounded-xl text-sm flex items-center justify-center font-black cursor-pointer ${
                 isReverseOn ? 'bg-[#2E7D32] text-white' : 'bg-[#235347] text-white'
               }`}
             >
@@ -699,7 +816,7 @@ export const NumberEntryScreen: React.FC = () => {
                 onPatternSelected('ခွေ');
                 setShowKwayDialog(true);
               }}
-              className={`h-11 rounded-xl text-xs flex items-center justify-center text-white ${
+              className={`h-11 px-1 rounded-xl text-[11px] sm:text-xs whitespace-nowrap overflow-hidden flex items-center justify-center text-white cursor-pointer ${
                 inputPattern === 'ခွေ' ? 'bg-[#2E7D32]' : 'bg-[#235347]'
               }`}
             >
@@ -708,28 +825,28 @@ export const NumberEntryScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => onKeypadNumPress('4')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               4
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('5')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               5
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('6')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               6
             </button>
             <button
               type="button"
               onClick={onKeypadSlashPress}
-              className="h-11 rounded-xl bg-[#235347] text-white text-xl flex items-center justify-center font-black"
+              className="h-11 rounded-xl bg-[#235347] text-white text-xl flex items-center justify-center font-black cursor-pointer"
             >
               /
             </button>
@@ -740,7 +857,7 @@ export const NumberEntryScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => onPatternSelected('အပါ')}
-              className={`h-11 rounded-xl text-xs flex items-center justify-center text-white ${
+              className={`h-11 px-1 rounded-xl text-[11px] sm:text-xs whitespace-nowrap overflow-hidden flex items-center justify-center text-white cursor-pointer ${
                 inputPattern === 'အပါ' ? 'bg-[#2E7D32]' : 'bg-[#235347]'
               }`}
             >
@@ -749,28 +866,28 @@ export const NumberEntryScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => onKeypadNumPress('7')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               7
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('8')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               8
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('9')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               9
             </button>
             <button
               type="button"
               onClick={onAdvanceFocusPress}
-              className="h-11 rounded-xl bg-[#235347] text-white text-xs flex items-center justify-center font-black"
+              className="h-11 px-1 rounded-xl bg-[#235347] text-white text-[11px] sm:text-xs whitespace-nowrap flex items-center justify-center font-black cursor-pointer"
             >
               ENTER
             </button>
@@ -791,28 +908,28 @@ export const NumberEntryScreen: React.FC = () => {
                   setInputAmount((prev) => prev.slice(0, -1));
                 }
               }}
-              className="h-11 rounded-xl bg-[#D32F2F] hover:bg-red-700 text-white text-xs flex items-center justify-center font-bold"
+              className="h-11 px-1 rounded-xl bg-[#D32F2F] hover:bg-red-700 text-white text-[11px] sm:text-xs whitespace-nowrap flex items-center justify-center font-bold cursor-pointer"
             >
               ဖျက်
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('0')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-lg flex items-center justify-center cursor-pointer"
             >
               0
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('00')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-sm flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-sm flex items-center justify-center cursor-pointer"
             >
               00
             </button>
             <button
               type="button"
               onClick={() => onKeypadNumPress('000')}
-              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-xs flex items-center justify-center"
+              className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-900 text-xs flex items-center justify-center cursor-pointer"
             >
               000
             </button>
@@ -830,11 +947,11 @@ export const NumberEntryScreen: React.FC = () => {
       {/* MODAL 1: Quick Entry Modal (အမြန်ထိုး 1 & 2) */}
       {quickEntryMode && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-[#235347]" />
-                <h3 className="font-bold text-base text-slate-900">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col select-text">
+            <div className="bg-[#235347] text-white px-4 py-3.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Zap className="w-4 h-4 text-[#FEC72E] shrink-0" />
+                <h3 className="font-bold text-sm truncate">
                   2D ဂဏန်းများ ( အမြန်ထိုး {quickEntryMode} )
                 </h3>
               </div>
@@ -844,87 +961,104 @@ export const NumberEntryScreen: React.FC = () => {
                   soundManager.playTouchClick();
                   setQuickEntryMode(null);
                 }}
-                className="p-1 rounded-full hover:bg-slate-100"
+                className="p-1 rounded-full text-white/80 hover:text-white hover:bg-white/10 shrink-0"
               >
-                <X className="w-5 h-5 text-slate-500" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  soundManager.playTouchClick();
-                  setQuickEntryMode(1);
-                }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${
-                  quickEntryMode === 1
-                    ? 'bg-[#235347] text-white border-[#235347]'
-                    : 'bg-slate-50 text-slate-700 border-slate-200'
-                }`}
-              >
-                အမြန်ထိုး 1
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  soundManager.playTouchClick();
-                  setQuickEntryMode(2);
-                }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${
-                  quickEntryMode === 2
-                    ? 'bg-[#235347] text-white border-[#235347]'
-                    : 'bg-slate-50 text-slate-700 border-slate-200'
-                }`}
-              >
-                အမြန်ထိုး 2
-              </button>
-            </div>
-
-            <textarea
-              rows={6}
-              value={quickEntryText}
-              onChange={(e) => setQuickEntryText(e.target.value)}
-              placeholder={
-                quickEntryMode === 1
-                  ? 'ကြေးတူရင်\n01.78=500\n\nကြေးတူ R ရင်\n01.78R500\n\nကြေးမတူရင်\n01.78=500/100'
-                  : '5a500 (5 အပါ)\n6b600 (6 ဘရိတ်)\n1t500 (1 ထိပ်)\n1w500 (1 နောက်)\np3500 (ပါဝါ)\nn7500 (နက္ခတ်)\ns500 (အပူး)\nx200 (ညီကို)\n123k500 (ခွေ)'
-              }
-              className="w-full p-3 font-mono text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-[#235347]"
-            />
-
-            <div className="flex justify-between items-center pt-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const clip = await navigator.clipboard.readText();
-                    if (clip) setQuickEntryText((prev) => (prev ? `${prev}\n${clip}` : clip));
-                  } catch {
-                    // Ignore
-                  }
-                }}
-                className="px-3 py-1.5 text-xs font-bold text-[#235347] bg-emerald-50 hover:bg-emerald-100 rounded-lg"
-              >
-                Clipboard မှ ကူးထည့်မည်
-              </button>
-
-              <div className="flex gap-2">
+            <div className="p-4 space-y-3 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setQuickEntryMode(null)}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  onClick={() => {
+                    soundManager.playTouchClick();
+                    setQuickEntryMode(1);
+                    setTimeout(() => quickEntryTextareaRef.current?.focus(), 0);
+                  }}
+                  className={`py-2 text-xs font-bold rounded-xl border whitespace-nowrap transition cursor-pointer ${
+                    quickEntryMode === 1
+                      ? 'bg-[#235347] text-white border-[#235347] shadow-sm'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
                 >
-                  မလုပ်တော့ပါ
+                  အမြန်ထိုး 1
                 </button>
                 <button
                   type="button"
-                  onClick={handleQuickEntrySubmit}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-[#235347] hover:bg-[#183B32] rounded-lg shadow-sm"
+                  onClick={() => {
+                    soundManager.playTouchClick();
+                    setQuickEntryMode(2);
+                    setTimeout(() => quickEntryTextareaRef.current?.focus(), 0);
+                  }}
+                  className={`py-2 text-xs font-bold rounded-xl border whitespace-nowrap transition cursor-pointer ${
+                    quickEntryMode === 2
+                      ? 'bg-[#235347] text-white border-[#235347] shadow-sm'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
                 >
-                  ထည့်သွင်းမည်
+                  အမြန်ထိုး 2
                 </button>
               </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={handleQuickEntryPaste}
+                  className="px-3 py-1.5 text-xs font-bold text-[#235347] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                >
+                  <Clipboard className="w-3.5 h-3.5 shrink-0" />
+                  <span>Paste (ကူးထည့်မည်)</span>
+                </button>
+
+                {quickEntryText.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundManager.playClick();
+                      setQuickEntryText('');
+                      quickEntryTextareaRef.current?.focus();
+                    }}
+                    className="px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg whitespace-nowrap cursor-pointer"
+                  >
+                    ရှင်းမည်
+                  </button>
+                )}
+              </div>
+
+              <textarea
+                ref={quickEntryTextareaRef}
+                rows={6}
+                value={quickEntryText}
+                onChange={(e) => setQuickEntryText(e.target.value)}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                placeholder={
+                  quickEntryMode === 1
+                    ? 'ကြေးတူရင်\n01.78=500\n\nကြေးတူ R ရင်\n01.78R500\n\nကြေးမတူရင်\n01.78=500/100'
+                    : '5a500 (5 အပါ)\n6b600 (6 ဘရိတ်)\n1t500 (1 ထိပ်)\n1w500 (1 နောက်)\np3500 (ပါဝါ)\nn7500 (နက္ခတ်)\ns500 (အပူး)\nx200 (ညီကို)\n123k500 (ခွေ)'
+                }
+                className="w-full p-3 font-mono text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#235347] select-text bg-white text-slate-900"
+              />
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setQuickEntryMode(null)}
+                className="flex-1 py-2.5 text-xs font-bold text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-xl whitespace-nowrap cursor-pointer"
+              >
+                မလုပ်တော့ပါ
+              </button>
+              <button
+                type="button"
+                onClick={handleQuickEntrySubmit}
+                className="flex-1 py-2.5 text-xs font-bold text-white bg-[#235347] hover:bg-[#183B32] rounded-xl shadow-sm whitespace-nowrap cursor-pointer"
+              >
+                ထည့်သွင်းမည်
+              </button>
             </div>
           </div>
         </div>
@@ -991,34 +1125,36 @@ export const NumberEntryScreen: React.FC = () => {
       {/* MODAL 3: Kway Doubles Dialog */}
       {showKwayDialog && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-base text-slate-900 text-center">
-              ခွေဂဏန်းများ အပူး ပါမည်လား?
-            </h3>
-            <p className="text-xs text-slate-500 text-center">
-              ( ဥပမာ: 123 ခွေရာတွင် 11, 22, 33 အပူးများ ထည့်သွင်းမည်လား )
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowKwayDialog(false);
-                  handleAddBet(true);
-                }}
-                className="flex-1 py-2.5 bg-[#235347] text-white rounded-xl font-bold text-xs shadow-sm hover:bg-[#183B32]"
-              >
-                အပူးပါမည်
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowKwayDialog(false);
-                  handleAddBet(false);
-                }}
-                className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-200"
-              >
-                အပူးမပါပါ
-              </button>
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div className="bg-[#235347] text-white px-4 py-3.5 text-center">
+              <h3 className="font-bold text-sm">ခွေဂဏန်းများ အပူး ပါမည်လား?</h3>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-xs text-slate-600 text-center leading-relaxed">
+                ( ဥပမာ: 123 ခွေရာတွင် 11, 22, 33 အပူးများ ထည့်သွင်းမည်လား )
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowKwayDialog(false);
+                    handleAddBet(true);
+                  }}
+                  className="flex-1 py-2.5 bg-[#235347] text-white rounded-xl font-bold text-xs shadow-sm hover:bg-[#183B32] whitespace-nowrap cursor-pointer"
+                >
+                  အပူးပါမည်
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowKwayDialog(false);
+                    handleAddBet(false);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-200 whitespace-nowrap cursor-pointer"
+                >
+                  အပူးမပါပါ
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1027,68 +1163,70 @@ export const NumberEntryScreen: React.FC = () => {
       {/* MODAL 4: Confirm Bet Dialog (ထိုးမည်လား?) */}
       {showConfirmBetDialog && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-lg text-slate-900 text-center">
-              ဘောင်ချာ အတည်ပြုပါ
-            </h3>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">ထိုးသူ :</span>
-                <span className="font-bold text-slate-800">{entryAgent?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">ရက်စွဲ/အကြိမ် :</span>
-                <span className="font-semibold text-slate-800">
-                  {selectedDate} ({selectedSession})
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">အရေအတွက် :</span>
-                <span className="font-bold text-slate-800">{entryItems.length} ကွက်</span>
-              </div>
-              <hr className="border-slate-200 my-1" />
-              <div className="flex justify-between text-base">
-                <span className="font-bold text-slate-900">စုစုပေါင်းငွေ :</span>
-                <span className="font-black text-[#235347] font-mono">{fmt(totalAmount)} ကျပ်</span>
-              </div>
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div className="bg-[#235347] text-white px-4 py-3.5 text-center">
+              <h3 className="font-bold text-base">ဘောင်ချာ အတည်ပြုပါ</h3>
             </div>
+            <div className="p-4 space-y-4">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">ထိုးသူ :</span>
+                  <span className="font-bold text-slate-800 truncate">{entryAgent?.name}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">ရက်စွဲ/အကြိမ် :</span>
+                  <span className="font-semibold text-slate-800 whitespace-nowrap">
+                    {selectedDate} ({selectedSession})
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">အရေအတွက် :</span>
+                  <span className="font-bold text-slate-800 tabular-nums">{entryItems.length} ကွက်</span>
+                </div>
+                <hr className="border-slate-200 my-1" />
+                <div className="flex justify-between text-base items-center">
+                  <span className="font-bold text-slate-900">စုစုပေါင်းငွေ :</span>
+                  <span className="font-black text-[#235347] font-mono tabular-nums">{fmt(totalAmount)}</span>
+                </div>
+              </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowConfirmBetDialog(false)}
-                className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-200"
-              >
-                မလုပ်တော့ပါ
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowConfirmBetDialog(false);
-                  const currentAgent =
-                    agents.find((a) => a.id === entryAgent?.id) || entryAgent;
-                  const savedVoucher = commitCurrentVoucher();
-                  if (savedVoucher) {
-                    const phone = (
-                      currentAgent?.phoneNumber ||
-                      entryAgent?.phoneNumber ||
-                      ''
-                    ).trim();
-                    if (phone !== '') {
-                      const slipTotal = Math.round(
-                        savedVoucher.items.reduce((sum, item) => sum + item.a, 0)
-                      );
-                      setQuickShareData({
-                        phone,
-                        text: `No.${savedVoucher.no}=${slipTotal}`,
-                      });
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmBetDialog(false)}
+                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-200 whitespace-nowrap cursor-pointer"
+                >
+                  မလုပ်တော့ပါ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowConfirmBetDialog(false);
+                    const currentAgent =
+                      agents.find((a) => a.id === entryAgent?.id) || entryAgent;
+                    const savedVoucher = commitCurrentVoucher();
+                    if (savedVoucher) {
+                      const phone = (
+                        currentAgent?.phoneNumber ||
+                        entryAgent?.phoneNumber ||
+                        ''
+                      ).trim();
+                      if (phone !== '') {
+                        const slipTotal = Math.round(
+                          savedVoucher.items.reduce((sum, item) => sum + item.a, 0)
+                        );
+                        setQuickShareData({
+                          phone,
+                          text: `No.${savedVoucher.no}=${slipTotal}`,
+                        });
+                      }
                     }
-                  }
-                }}
-                className="flex-1 py-2.5 bg-[#2E7D32] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md"
-              >
-                အတည်ပြုသိမ်းမည်
-              </button>
+                  }}
+                  className="flex-1 py-2.5 bg-[#2E7D32] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md whitespace-nowrap cursor-pointer"
+                >
+                  အတည်ပြုသိမ်းမည်
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1097,9 +1235,19 @@ export const NumberEntryScreen: React.FC = () => {
       {/* MODAL 5: Edit Single Bet Item in Draft */}
       {editingItemIndex !== null && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-base text-slate-900">ဂဏန်း ပြင်ဆင်ရန် / ဖျက်ရန်</h3>
-            <div className="space-y-3">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div className="bg-[#235347] text-white px-4 py-3.5 flex items-center justify-between">
+              <h3 className="font-bold text-sm">ဂဏန်း ပြင်ဆင်ရန် / ဖျက်ရန်</h3>
+              <button
+                type="button"
+                onClick={() => setEditingItemIndex(null)}
+                className="text-white/80 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-600 block mb-1">ဂဏန်း</label>
                 <input
@@ -1107,7 +1255,7 @@ export const NumberEntryScreen: React.FC = () => {
                   maxLength={2}
                   value={editNumInput}
                   onChange={(e) => setEditNumInput(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                  className="w-full px-3 py-2 border rounded-lg text-center font-mono font-bold text-lg"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-center font-mono font-bold text-lg focus:outline-none focus:ring-2 focus:ring-[#235347] select-text"
                 />
               </div>
               <div>
@@ -1116,19 +1264,19 @@ export const NumberEntryScreen: React.FC = () => {
                   type="text"
                   value={editAmtInput}
                   onChange={(e) => setEditAmtInput(e.target.value.replace(/\D/g, ''))}
-                  className="w-full px-3 py-2 border rounded-lg text-center font-mono font-bold text-lg"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-center font-mono font-bold text-lg focus:outline-none focus:ring-2 focus:ring-[#235347] select-text"
                 />
               </div>
             </div>
 
-            <div className="flex justify-between items-center gap-2 pt-2">
+            <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   deleteEntryItem(editingItemIndex);
                   setEditingItemIndex(null);
                 }}
-                className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-lg flex items-center gap-1"
+                className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl flex items-center gap-1 whitespace-nowrap cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>ဖျက်မည်</span>
@@ -1138,7 +1286,7 @@ export const NumberEntryScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setEditingItemIndex(null)}
-                  className="px-3 py-2 text-slate-600 text-xs font-bold hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-2 text-slate-700 bg-slate-200 hover:bg-slate-300 text-xs font-bold rounded-xl whitespace-nowrap cursor-pointer"
                 >
                   မလုပ်တော့ပါ
                 </button>
@@ -1146,12 +1294,33 @@ export const NumberEntryScreen: React.FC = () => {
                   type="button"
                   onClick={() => {
                     const amt = parseInt(editAmtInput, 10);
-                    if (editNumInput.length === 2 && amt > 0) {
-                      editEntryItem(editingItemIndex, editNumInput, amt);
-                      setEditingItemIndex(null);
+                    if (editNumInput.length !== 2 || isNaN(amt) || amt <= 0) {
+                      soundManager.playDelete();
+                      setAlertBox({
+                        title: 'ပုံစံမမှန်သော အချက်အလက်',
+                        message: '၂ လုံးဂဏန်း (00-99) နှင့် မှန်ကန်သော ငွေပမာဏ ထည့်သွင်းပါ။',
+                      });
+                      return;
                     }
+                    if (blocked.has(editNumInput)) {
+                      soundManager.playDelete();
+                      setAlertBox({
+                        title: 'မရဂဏန်း သတိပေးချက်',
+                        sections: [
+                          {
+                            label: 'မရဂဏန်း (ပိတ်ဂဏန်း)',
+                            reason: 'ဤဂဏန်းသည် ပိတ်ဂဏန်းစာရင်းတွင် ပါဝင်နေသောကြောင့် ထည့်သွင်း၍ မရပါ။',
+                            items: [editNumInput],
+                            tone: 'danger',
+                          },
+                        ],
+                      });
+                      return;
+                    }
+                    editEntryItem(editingItemIndex, editNumInput, amt);
+                    setEditingItemIndex(null);
                   }}
-                  className="px-4 py-2 bg-[#235347] text-white text-xs font-bold rounded-lg shadow-sm"
+                  className="px-4 py-2 bg-[#235347] hover:bg-[#183B32] text-white text-xs font-bold rounded-xl shadow-sm whitespace-nowrap cursor-pointer"
                 >
                   သိမ်းမည်
                 </button>
@@ -1208,6 +1377,9 @@ export const NumberEntryScreen: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MODAL 7: Blocked / Rejected Numbers Alert Box */}
+      <AlertBoxModal alert={alertBox} onClose={() => setAlertBox(null)} />
     </div>
   );
 };

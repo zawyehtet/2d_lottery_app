@@ -128,33 +128,36 @@ export const SettlementScreen: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2">
             <button
+              type="button"
               onClick={handleCopyTextSummary}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-[#235347] border border-emerald-200 text-xs font-semibold rounded-xl transition"
+              className="flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-[#235347] border border-emerald-200 text-[11px] sm:text-xs font-semibold rounded-xl transition whitespace-nowrap"
             >
-              {copiedSummary ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copiedSummary ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
               <span>{copiedSummary ? 'ကူးပြီး' : 'စာသားကူးမည်'}</span>
             </button>
 
             <button
+              type="button"
               onClick={handleExportCSV}
               disabled={settled.length === 0}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-40 text-[#235347] border border-emerald-200 text-xs font-semibold rounded-xl transition"
+              className="flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-40 text-[#235347] border border-emerald-200 text-[11px] sm:text-xs font-semibold rounded-xl transition whitespace-nowrap"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5 shrink-0" />
               <span>CSV ထုတ်မည်</span>
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 soundManager.playClick();
                 setShowClearAllModal(true);
               }}
               disabled={settled.length === 0}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-40 text-red-700 border border-red-200 text-xs font-semibold rounded-xl transition"
+              className="flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-40 text-red-700 border border-red-200 text-[11px] sm:text-xs font-semibold rounded-xl transition whitespace-nowrap"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
               <span>အားလုံးဖျက်မည်</span>
             </button>
           </div>
@@ -163,16 +166,18 @@ export const SettlementScreen: React.FC = () => {
         {/* Tab Selection */}
         <div className="flex gap-2 bg-gray-200/70 p-1 rounded-xl">
           <button
+            type="button"
             onClick={() => setActiveTab('rounds')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+            className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] sm:text-xs font-bold transition whitespace-nowrap ${
               activeTab === 'rounds' ? 'bg-white text-[#235347] shadow-sm' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             အပိုင်းအလိုက် ရက်ချုပ် ({settled.length})
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('daily')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+            className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] sm:text-xs font-bold transition whitespace-nowrap ${
               activeTab === 'daily' ? 'bg-white text-[#235347] shadow-sm' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -210,19 +215,19 @@ export const SettlementScreen: React.FC = () => {
                         index % 2 === 1 ? 'bg-[#EAF0EE]/30 hover:bg-[#EAF0EE]/70' : 'bg-white hover:bg-gray-50'
                       }`}
                     >
-                      <div className="col-span-2 text-center text-gray-400 font-sans">{index + 1}</div>
-                      <div className="col-span-4 font-semibold text-gray-800 flex items-center gap-1.5 font-sans">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{formatDotDate(item.date)}</span>
+                      <div className="col-span-2 text-center text-gray-400 font-sans tabular-nums">{index + 1}</div>
+                      <div className="col-span-4 font-semibold text-gray-800 flex items-center gap-1.5 font-sans min-w-0">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span className="truncate">{formatDotDate(item.date)}</span>
                       </div>
-                      <div className="col-span-3 text-center font-sans text-gray-600">
+                      <div className="col-span-3 text-center font-sans text-gray-600 truncate px-1">
                         {item.session}
                       </div>
-                      <div className="col-span-3 text-right pr-2 font-bold flex items-center justify-end gap-1">
-                        <span className={isProfit ? 'text-emerald-700' : 'text-red-600'}>
-                          {isProfit ? '+' : ''}{fmt(item.profitLoss)} Ks
+                      <div className="col-span-3 text-right pr-1 font-bold flex items-center justify-end gap-1 whitespace-nowrap">
+                        <span className={`tabular-nums ${isProfit ? 'text-emerald-700' : 'text-red-600'}`}>
+                          {isProfit ? '+' : ''}{fmt(item.profitLoss)}
                         </span>
-                        <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                       </div>
                     </div>
                   );
@@ -231,27 +236,27 @@ export const SettlementScreen: React.FC = () => {
             </div>
 
             {/* Bottom Summary Bar */}
-            <div className="bg-gray-50 border-t border-gray-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-4 text-gray-600">
-                <div>
-                  လက်ခံငွေပေါင်း: <strong className="font-mono text-gray-900">{fmt(totalRoundsRetained)}</strong> Ks
+            <div className="bg-gray-50 border-t border-gray-200 p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3 sm:gap-4 text-gray-600 flex-wrap justify-center">
+                <div className="whitespace-nowrap">
+                  လက်ခံငွေပေါင်း: <strong className="font-mono tabular-nums text-gray-900">{fmt(totalRoundsRetained)}</strong>
                 </div>
                 <div className="h-3 w-px bg-gray-300" />
-                <div>
-                  လျော်ကြေးပေါင်း: <strong className="font-mono text-red-600">{fmt(totalRoundsPayout)}</strong> Ks
+                <div className="whitespace-nowrap">
+                  လျော်ကြေးပေါင်း: <strong className="font-mono tabular-nums text-red-600">{fmt(totalRoundsPayout)}</strong>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 whitespace-nowrap">
                 <span className="font-semibold text-gray-700">အသားတင် အမြတ်ငွေ :</span>
                 <span
-                  className={`text-base font-bold font-mono px-3 py-1 rounded-xl ${
+                  className={`text-sm sm:text-base font-bold font-mono tabular-nums px-3 py-1 rounded-xl ${
                     totalRoundsProfitLoss >= 0
                       ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                       : 'bg-red-100 text-red-900 border border-red-300'
                   }`}
                 >
-                  {totalRoundsProfitLoss >= 0 ? '+' : ''}{fmt(totalRoundsProfitLoss)} Ks
+                  {totalRoundsProfitLoss >= 0 ? '+' : ''}{fmt(totalRoundsProfitLoss)}
                 </span>
               </div>
             </div>
@@ -284,19 +289,19 @@ export const SettlementScreen: React.FC = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                       <div className="bg-gray-50 p-2 rounded-xl">
                         <span className="text-gray-500 text-[11px] block">စုစုပေါင်းရောင်းရငွေ</span>
-                        <span className="font-bold font-mono text-gray-900">{fmt(ds.totalSales)} Ks</span>
+                        <span className="font-bold font-mono tabular-nums text-gray-900">{fmt(ds.totalSales)}</span>
                       </div>
                       <div className="bg-gray-50 p-2 rounded-xl">
                         <span className="text-gray-500 text-[11px] block">ကော်မရှင်စုစုပေါင်း</span>
-                        <span className="font-bold font-mono text-amber-700">{fmt(ds.totalCommission)} Ks</span>
+                        <span className="font-bold font-mono tabular-nums text-amber-700">{fmt(ds.totalCommission)}</span>
                       </div>
                       <div className="bg-gray-50 p-2 rounded-xl">
                         <span className="text-gray-500 text-[11px] block">ပေါက်ကြေးလျော်ငွေ</span>
-                        <span className="font-bold font-mono text-red-600">{fmt(ds.winningPayout)} Ks</span>
+                        <span className="font-bold font-mono tabular-nums text-red-600">{fmt(ds.winningPayout)}</span>
                       </div>
                       <div className={`p-2 rounded-xl border ${isProfit ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-red-50 border-red-200 text-red-900'}`}>
                         <span className="text-[11px] block font-semibold">{isProfit ? 'အမြတ်ငွေ' : 'အရှုံးငွေ'}</span>
-                        <span className="font-bold font-mono">{isProfit ? '+' : ''}{fmt(ds.profitOrLoss)} Ks</span>
+                        <span className="font-bold font-mono tabular-nums">{isProfit ? '+' : ''}{fmt(ds.profitOrLoss)}</span>
                       </div>
                     </div>
                   </div>
@@ -330,26 +335,26 @@ export const SettlementScreen: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
                   <span className="text-emerald-700 block text-[11px]">လက်ခံငွေ (Retained)</span>
-                  <span className="font-bold font-mono text-[#235347] text-sm">
-                    {fmt(selectedRecord.totalRetained)} Ks
+                  <span className="font-bold font-mono tabular-nums text-[#235347] text-sm">
+                    {fmt(selectedRecord.totalRetained)}
                   </span>
                 </div>
                 <div className="bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
                   <span className="text-amber-800 block text-[11px]">ကော်မရှင် (Commission)</span>
-                  <span className="font-bold font-mono text-amber-800 text-sm">
-                    {fmt(selectedRecord.commission)} Ks
+                  <span className="font-bold font-mono tabular-nums text-amber-800 text-sm">
+                    {fmt(selectedRecord.commission)}
                   </span>
                 </div>
                 <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100">
                   <span className="text-blue-800 block text-[11px]">ကျန်ငွေ (Retained Net)</span>
-                  <span className="font-bold font-mono text-blue-800 text-sm">
-                    {fmt(selectedRecord.retainedNet)} Ks
+                  <span className="font-bold font-mono tabular-nums text-blue-800 text-sm">
+                    {fmt(selectedRecord.retainedNet)}
                   </span>
                 </div>
                 <div className="bg-red-50/50 p-2.5 rounded-xl border border-red-100">
                   <span className="text-red-800 block text-[11px]">ပေါက်ကြေးလျော်ငွေ (Payout)</span>
-                  <span className="font-bold font-mono text-red-700 text-sm">
-                    {fmt(selectedRecord.payout)} Ks
+                  <span className="font-bold font-mono tabular-nums text-red-700 text-sm">
+                    {fmt(selectedRecord.payout)}
                   </span>
                 </div>
               </div>
@@ -382,25 +387,27 @@ export const SettlementScreen: React.FC = () => {
                 <span className="font-semibold text-sm">
                   {selectedRecord.profitLoss >= 0 ? 'အမြတ်ငွေ (Profit)' : 'အရှုံးငွေ (Loss)'}
                 </span>
-                <span className="text-lg font-bold font-mono">
+                <span className="text-lg font-bold font-mono tabular-nums">
                   {selectedRecord.profitLoss >= 0 ? '+' : ''}
-                  {fmt(selectedRecord.profitLoss)} Ks
+                  {fmt(selectedRecord.profitLoss)}
                 </span>
               </div>
             </div>
 
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-2">
               <button
+                type="button"
                 onClick={() => handleDeleteOne(selectedRecord.id)}
-                className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold rounded-xl transition flex items-center gap-1"
+                className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold rounded-xl transition flex items-center gap-1 whitespace-nowrap"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
                 <span>ဤမှတ်တမ်းဖျက်မည်</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setSelectedRecord(null)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold rounded-xl"
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold rounded-xl whitespace-nowrap"
               >
                 ပိတ်မည်
               </button>
@@ -412,27 +419,40 @@ export const SettlementScreen: React.FC = () => {
       {/* Clear All Confirmation Modal */}
       {showClearAllModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-200 text-center flex flex-col gap-3">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <h4 className="font-bold text-gray-900 text-base">မှတ်တမ်းအားလုံး ဖျက်မည်လား?</h4>
-            <p className="text-xs text-gray-500">
-              သိမ်းဆည်းထားသော ရက်ချုပ်မှတ်တမ်းများအားလုံး ပျက်ပြယ်သွားမည်ဖြစ်ပြီး ပြန်ယူ၍မရနိုင်ပါ။
-            </p>
-            <div className="flex gap-2 mt-2">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-emerald-900/15">
+            <div className="bg-[#235347] text-white px-4 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
+                <h4 className="font-bold text-sm">မှတ်တမ်းအားလုံး ဖျက်မည်လား?</h4>
+              </div>
               <button
+                type="button"
                 onClick={() => setShowClearAllModal(false)}
-                className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold rounded-xl"
+                className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10"
               >
-                မဖျက်ပါ
+                <X className="w-4 h-4" />
               </button>
-              <button
-                onClick={handleConfirmClearAll}
-                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow transition"
-              >
-                အားလုံးဖျက်မည်
-              </button>
+            </div>
+            <div className="p-5 flex flex-col gap-4">
+              <p className="text-xs text-gray-600 leading-relaxed">
+                သိမ်းဆည်းထားသော ရက်ချုပ်မှတ်တမ်းများအားလုံး ပျက်ပြယ်သွားမည်ဖြစ်ပြီး ပြန်ယူ၍မရနိုင်ပါ။
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowClearAllModal(false)}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl whitespace-nowrap transition"
+                >
+                  မဖျက်ပါ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmClearAll}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow whitespace-nowrap transition"
+                >
+                  အားလုံးဖျက်မည်
+                </button>
+              </div>
             </div>
           </div>
         </div>

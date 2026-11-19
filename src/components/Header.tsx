@@ -66,15 +66,15 @@ export const Header: React.FC<HeaderProps> = ({
             {actions}
 
             {showSessionPill && (
-              <div className="flex items-center gap-1.5 bg-[#183B32] border border-white/20 rounded-lg px-2 py-1 text-xs">
+              <div className="flex items-center gap-1.5 bg-[#183B32] border border-white/20 rounded-lg px-2 py-1 text-[11px] sm:text-xs">
                 {/* Date Button */}
                 <button
                   type="button"
                   onClick={() => setShowDatePicker(true)}
-                  className="flex items-center gap-1 text-white/90 hover:text-white font-medium"
+                  className="flex items-center gap-1 text-white/90 hover:text-white font-medium whitespace-nowrap"
                   title="ရက်စွဲ ရွေးရန်"
                 >
-                  <Calendar className="w-3.5 h-3.5 text-[#FEC72E]" />
+                  <Calendar className="w-3.5 h-3.5 text-[#FEC72E] shrink-0" />
                   <span>{formatDotDate(selectedDate)}</span>
                 </button>
 
@@ -85,10 +85,10 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowSessionMenu(!showSessionMenu)}
-                    className="flex items-center gap-0.5 text-white/90 hover:text-white font-bold"
+                    className="flex items-center gap-0.5 text-white/90 hover:text-white font-bold whitespace-nowrap"
                   >
                     <span>{hasRound ? selectedSession : 'အကြိမ်မရှိ'}</span>
-                    <ChevronDown className="w-3.5 h-3.5" />
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                   </button>
 
                   {showSessionMenu && (

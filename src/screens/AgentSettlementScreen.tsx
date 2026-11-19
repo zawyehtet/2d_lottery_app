@@ -55,15 +55,15 @@ export const AgentSettlementScreen: React.FC = () => {
       `ရက်စွဲ: ${dotDate} (${selectedSession || ''})`,
       `ပေါက်ဂဏန်း: ${currentWinningNumber || 'မထွက်သေး'}`,
       `-----------------------`,
-      `ရောင်းရငွေ: ${fmt(a.totalSales)} Ks`,
-      `ကော်မရှင် (${a.commissionRate}%): ${fmt(a.commissionAmount)} Ks`,
-      `ကျန်ငွေ: ${fmt(a.netSales)} Ks`,
-      `ပေါက်ငွေ: ${a.winningBetAmount > 0 ? `${fmt(a.winningBetAmount)} Ks (x${a.multiplier})` : '0 Ks'}`,
-      `ပေါက်ကြေး: ${fmt(a.payoutAmount)} Ks`,
+      `ရောင်းရငွေ: ${fmt(a.totalSales)}`,
+      `ကော်မရှင် (${a.commissionRate}%): ${fmt(a.commissionAmount)}`,
+      `ကျန်ငွေ: ${fmt(a.netSales)}`,
+      `ပေါက်ငွေ: ${a.winningBetAmount > 0 ? `${fmt(a.winningBetAmount)} (x${a.multiplier})` : '0'}`,
+      `ပေါက်ကြေး: ${fmt(a.payoutAmount)}`,
       `-----------------------`,
       isGain
-        ? `ဒိုင်မှ ရရန်ကျန်ငွေ: ${fmt(a.netBalance)} Ks`
-        : `ကိုယ်စားလှယ်သို့ ပေးရန်ငွေ: ${fmt(Math.abs(a.netBalance))} Ks`,
+        ? `ဒိုင်မှ ရရန်ကျန်ငွေ: ${fmt(a.netBalance)}`
+        : `ကိုယ်စားလှယ်သို့ ပေးရန်ငွေ: ${fmt(Math.abs(a.netBalance))}`,
     ];
 
     navigator.clipboard.writeText(lines.join('\n'));
@@ -102,20 +102,20 @@ export const AgentSettlementScreen: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-white p-3 rounded-2xl border border-emerald-900/10 shadow-sm text-xs">
             <span className="text-gray-500 block text-[11px]">စုစုပေါင်း ရောင်းရငွေ</span>
-            <span className="font-bold font-mono text-[#235347] text-sm">
-              {fmt(totalSales)} Ks
+            <span className="font-bold font-mono tabular-nums text-[#235347] text-sm">
+              {fmt(totalSales)}
             </span>
           </div>
           <div className="bg-white p-3 rounded-2xl border border-emerald-900/10 shadow-sm text-xs">
             <span className="text-gray-500 block text-[11px]">စုစုပေါင်း ကော်မရှင်</span>
-            <span className="font-bold font-mono text-amber-700 text-sm">
-              {fmt(totalCommission)} Ks
+            <span className="font-bold font-mono tabular-nums text-amber-700 text-sm">
+              {fmt(totalCommission)}
             </span>
           </div>
           <div className="bg-white p-3 rounded-2xl border border-emerald-900/10 shadow-sm text-xs">
             <span className="text-gray-500 block text-[11px]">စုစုပေါင်း ပေါက်ကြေး</span>
-            <span className="font-bold font-mono text-red-600 text-sm">
-              {fmt(totalPayout)} Ks
+            <span className="font-bold font-mono tabular-nums text-red-600 text-sm">
+              {fmt(totalPayout)}
             </span>
           </div>
           <div
@@ -128,8 +128,8 @@ export const AgentSettlementScreen: React.FC = () => {
             <span className="block text-[11px] font-semibold">
               {totalMasterNet >= 0 ? 'ဒိုင် အသားတင်အမြတ်' : 'ဒိုင် အသားတင်အရှုံး'}
             </span>
-            <span className="font-bold font-mono text-sm">
-              {totalMasterNet >= 0 ? '+' : ''}{fmt(totalMasterNet)} Ks
+            <span className="font-bold font-mono tabular-nums text-sm">
+              {totalMasterNet >= 0 ? '+' : ''}{fmt(totalMasterNet)}
             </span>
           </div>
         </div>
@@ -165,14 +165,15 @@ export const AgentSettlementScreen: React.FC = () => {
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => handleCopyAgentReport(item)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap shrink-0 ${
                         isCopied
                           ? 'bg-emerald-100 text-[#235347]'
                           : 'bg-gray-100 text-gray-700 hover:bg-emerald-50 hover:text-[#235347]'
                       }`}
                     >
-                      {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {isCopied ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
                       <span>{isCopied ? 'ကူးယူပြီး' : 'စာရင်းကူးမည်'}</span>
                     </button>
                   </div>
@@ -180,46 +181,46 @@ export const AgentSettlementScreen: React.FC = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <div className="bg-gray-50 p-2 rounded-xl">
                       <span className="text-gray-500 text-[11px] block">ရောင်းရငွေ</span>
-                      <span className="font-bold font-mono text-gray-900">
-                        {fmt(item.totalSales)} Ks
+                      <span className="font-bold font-mono tabular-nums text-gray-900">
+                        {fmt(item.totalSales)}
                       </span>
                     </div>
 
                     <div className="bg-gray-50 p-2 rounded-xl">
                       <span className="text-gray-500 text-[11px] block">ကော်မရှင် ({item.commissionRate}%)</span>
-                      <span className="font-bold font-mono text-amber-700">
-                        {fmt(item.commissionAmount)} Ks
+                      <span className="font-bold font-mono tabular-nums text-amber-700">
+                        {fmt(item.commissionAmount)}
                       </span>
                     </div>
 
                     <div className="bg-gray-50 p-2 rounded-xl">
                       <span className="text-gray-500 text-[11px] block">ကျန်ငွေ (Net)</span>
-                      <span className="font-bold font-mono text-blue-700">
-                        {fmt(item.netSales)} Ks
+                      <span className="font-bold font-mono tabular-nums text-blue-700">
+                        {fmt(item.netSales)}
                       </span>
                     </div>
 
                     <div className="bg-gray-50 p-2 rounded-xl">
                       <span className="text-gray-500 text-[11px] block">ပေါက်ကြေးလျော်ငွေ</span>
-                      <span className="font-bold font-mono text-red-600">
-                        {fmt(item.payoutAmount)} Ks
+                      <span className="font-bold font-mono tabular-nums text-red-600">
+                        {fmt(item.payoutAmount)}
                       </span>
                     </div>
                   </div>
 
                   {/* Net Due Box */}
                   <div
-                    className={`p-3 rounded-xl border flex items-center justify-between text-xs font-medium ${
+                    className={`p-3 rounded-xl border flex items-center justify-between gap-2 text-xs font-medium ${
                       isGain
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                         : 'bg-red-50 border-red-200 text-red-900'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {isGain ? (
-                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
                       ) : (
-                        <TrendingDown className="w-4 h-4 text-red-600" />
+                        <TrendingDown className="w-4 h-4 text-red-600 shrink-0" />
                       )}
                       <span>
                         {isGain
@@ -228,8 +229,8 @@ export const AgentSettlementScreen: React.FC = () => {
                       </span>
                     </div>
 
-                    <span className="text-sm font-bold font-mono">
-                      {fmt(Math.abs(item.netBalance))} Ks
+                    <span className="text-sm font-bold font-mono tabular-nums whitespace-nowrap shrink-0">
+                      {fmt(Math.abs(item.netBalance))}
                     </span>
                   </div>
                 </div>

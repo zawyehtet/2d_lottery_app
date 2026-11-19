@@ -200,9 +200,9 @@ export const HomeScreen: React.FC = () => {
               soundManager.playClick();
               navigateTo('SETTLEMENT');
             }}
-            className="h-11 bg-white hover:bg-slate-50 border border-emerald-600/30 rounded-xl px-3 flex items-center justify-center gap-2 text-xs font-bold text-[#235347] shadow-sm"
+            className="h-11 bg-white hover:bg-slate-50 border border-emerald-600/30 rounded-xl px-2.5 flex items-center justify-center gap-1.5 text-xs font-bold text-[#235347] shadow-sm whitespace-nowrap"
           >
-            <Sparkles className="w-4 h-4 text-emerald-600" />
+            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>ရက်ချုပ်အားလုံး</span>
           </button>
 
@@ -212,7 +212,7 @@ export const HomeScreen: React.FC = () => {
               soundManager.playClick();
               navigateTo('LAYOFF_HISTORY');
             }}
-            className="h-11 bg-white hover:bg-slate-50 border border-amber-600/30 rounded-xl px-3 flex items-center justify-center gap-2 text-xs font-bold text-amber-800 shadow-sm"
+            className="h-11 bg-white hover:bg-slate-50 border border-amber-600/30 rounded-xl px-2.5 flex items-center justify-center gap-1.5 text-xs font-bold text-amber-800 shadow-sm whitespace-nowrap"
           >
             <span>တင်ကွက်မှတ်တမ်း</span>
           </button>

@@ -216,12 +216,12 @@ export const SettingsScreen: React.FC = () => {
               </div>
               <div>
                 <h4 className="font-semibold text-gray-900 text-sm">မူလ ဘရိတ်သတ်မှတ်ငွေ</h4>
-                <p className="text-xs text-gray-500">
-                  လက်ရှိသတ်မှတ်ချက်: {fmt(settings.brakeLimit)} Ks
+                <p className="text-xs text-gray-500 font-mono tabular-nums">
+                  လက်ရှိသတ်မှတ်ချက်: {fmt(settings.brakeLimit)}
                 </p>
               </div>
             </div>
-            <span className="text-xs font-semibold text-[#235347]">ပြင်မည် →</span>
+            <span className="text-xs font-semibold text-[#235347] whitespace-nowrap shrink-0">ပြင်မည် →</span>
           </div>
 
           {/* Blocked Numbers */}
@@ -310,7 +310,7 @@ export const SettingsScreen: React.FC = () => {
                 </p>
               </div>
             </div>
-            <span className="text-xs font-semibold text-red-600">ရှင်းလင်းမည် →</span>
+            <span className="text-xs font-semibold text-red-600 whitespace-nowrap shrink-0">ရှင်းလင်းမည် →</span>
           </div>
         </div>
       </main>
@@ -343,7 +343,7 @@ export const SettingsScreen: React.FC = () => {
                 placeholder="00"
                 value={winNumInput}
                 onChange={(e) => setWinNumInput(e.target.value.replace(/\D/g, ''))}
-                className="w-full py-3 text-center text-3xl font-bold font-mono border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#235347]"
+                className="w-full py-3 text-center text-3xl font-bold font-mono border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#235347] select-text"
               />
             </div>
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
@@ -383,14 +383,14 @@ export const SettingsScreen: React.FC = () => {
               </button>
             </div>
             <div className="p-4 flex flex-col gap-3">
-              <label className="text-xs text-gray-600">ဂဏန်းတစ်လုံးချင်းစီအတွက် မူလဘရိတ် (Ks)</label>
+              <label className="text-xs text-gray-600">ဂဏန်းတစ်လုံးချင်းစီအတွက် မူလဘရိတ်</label>
               <input
                 type="number"
                 step="5000"
                 min="0"
                 value={brakeInput}
                 onChange={(e) => setBrakeInput(e.target.value)}
-                className="w-full py-2 px-3 text-center text-lg font-bold font-mono border border-gray-300 rounded-xl"
+                className="w-full py-2 px-3 text-center text-lg font-bold font-mono tabular-nums border border-gray-300 rounded-xl select-text"
               />
             </div>
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
@@ -433,13 +433,13 @@ export const SettingsScreen: React.FC = () => {
                   placeholder="ဂဏန်း (ဥပမာ- 99)"
                   value={newBlockedNumber}
                   onChange={(e) => setNewBlockedNumber(e.target.value.replace(/\D/g, ''))}
-                  className="flex-1 px-3 py-2 text-sm font-mono border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#235347]"
+                  className="flex-1 min-w-0 px-3 py-2 text-sm font-mono border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#235347] select-text"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#235347] text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow"
+                  className="px-4 py-2 bg-[#235347] text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow whitespace-nowrap shrink-0"
                 >
-                  <Plus className="w-4 h-4" /> ပိတ်မည်
+                  <Plus className="w-4 h-4 shrink-0" /> ပိတ်မည်
                 </button>
               </form>
 
@@ -501,7 +501,7 @@ export const SettingsScreen: React.FC = () => {
                   placeholder="အပိုင်းအမည် (ဥပမာ - 04:30 PM)"
                   value={newSessionName}
                   onChange={(e) => setNewSessionName(e.target.value)}
-                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg"
+                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg select-text"
                 />
                 <div className="flex gap-2">
                   <input
@@ -510,14 +510,14 @@ export const SettingsScreen: React.FC = () => {
                     placeholder="ကော်မရှင် %"
                     value={newSessionRate}
                     onChange={(e) => setNewSessionRate(e.target.value)}
-                    className="flex-1 px-3 py-1.5 text-xs border border-gray-300 rounded-lg"
+                    className="flex-1 min-w-0 px-3 py-1.5 text-xs border border-gray-300 rounded-lg select-text"
                   />
                   <input
                     type="number"
                     placeholder="အမြှောက်နှုန်း ဆ"
                     value={newSessionMult}
                     onChange={(e) => setNewSessionMult(e.target.value)}
-                    className="flex-1 px-3 py-1.5 text-xs border border-gray-300 rounded-lg"
+                    className="flex-1 min-w-0 px-3 py-1.5 text-xs border border-gray-300 rounded-lg select-text"
                   />
                 </div>
                 <button
@@ -624,40 +624,53 @@ export const SettingsScreen: React.FC = () => {
       {/* Master Reset Modal */}
       {activeModal === 'reset' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-200 text-center flex flex-col gap-3">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <h4 className="font-bold text-gray-900 text-base">ဒေတာများအားလုံး ဖျက်ဆီးမည်လား?</h4>
-            <p className="text-xs text-gray-500">
-              ဤလုပ်ဆောင်ချက်သည် ဘောင်ချာများ၊ ကိုယ်စားလှယ်များ၊ တင်ကွက်များနှင့် ရက်ချုပ်မှတ်တမ်းများ အားလုံးကို အပြီးတိုင် ဖျက်ဆီးပါမည်။
-            </p>
-            <div className="text-left">
-              <label className="text-[11px] font-semibold text-gray-600 block mb-1">
-                အတည်ပြုရန် <strong className="text-red-600 font-mono">reset</strong> ဟု ရိုက်ထည့်ပါ:
-              </label>
-              <input
-                type="text"
-                value={resetConfirmText}
-                onChange={(e) => setResetConfirmText(e.target.value)}
-                placeholder="reset"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-            <div className="flex gap-2 mt-2">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden border border-emerald-900/15">
+            <div className="bg-[#235347] text-white px-4 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
+                <h4 className="font-bold text-sm">ဒေတာများအားလုံး ဖျက်ဆီးမည်လား?</h4>
+              </div>
               <button
+                type="button"
                 onClick={() => setActiveModal(null)}
-                className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl"
+                className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10"
               >
-                မလုပ်ပါ
+                <X className="w-4 h-4" />
               </button>
-              <button
-                disabled={resetConfirmText.toLowerCase() !== 'reset'}
-                onClick={handleResetData}
-                className="flex-1 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl shadow"
-              >
-                ရှင်းလင်းမည်
-              </button>
+            </div>
+            <div className="p-5 flex flex-col gap-3.5">
+              <p className="text-xs text-gray-600 leading-relaxed">
+                ဤလုပ်ဆောင်ချက်သည် ဘောင်ချာများ၊ ကိုယ်စားလှယ်များ၊ တင်ကွက်များနှင့် ရက်ချုပ်မှတ်တမ်းများ အားလုံးကို အပြီးတိုင် ဖျက်ဆီးပါမည်။
+              </p>
+              <div className="text-left">
+                <label className="text-[11px] font-semibold text-gray-600 block mb-1">
+                  အတည်ပြုရန် <strong className="text-red-600 font-mono">reset</strong> ဟု ရိုက်ထည့်ပါ:
+                </label>
+                <input
+                  type="text"
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  placeholder="reset"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 select-text"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveModal(null)}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl whitespace-nowrap transition"
+                >
+                  မလုပ်ပါ
+                </button>
+                <button
+                  type="button"
+                  disabled={resetConfirmText.toLowerCase() !== 'reset'}
+                  onClick={handleResetData}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white text-xs font-bold rounded-xl shadow whitespace-nowrap transition"
+                >
+                  ရှင်းလင်းမည်
+                </button>
+              </div>
             </div>
           </div>
         </div>
