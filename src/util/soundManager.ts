@@ -40,9 +40,6 @@ class SoundManager {
 
       window.addEventListener('click', initAudio, { passive: true });
       window.addEventListener('touchstart', initAudio, { passive: true });
-
-      // Immediate background decode
-      this.decodeEmbeddedBuffers();
     }
   }
 
