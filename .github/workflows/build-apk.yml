@@ -31,11 +31,16 @@ jobs:
             cp -r dist/* app/src/main/assets/www/
           fi
 
-      - name: Ensure :app module is included in settings.gradle.kts
+      - name: Configure settings.gradle.kts and inspect tasks
         run: |
-          if [ -d "app" ] && [ -f "settings.gradle.kts" ]; then
-            grep -q 'include(":app")' settings.gradle.kts || echo 'include(":app")' >> settings.gradle.kts
+          if [ -d "app" ]; then
+            if [ ! -f "settings.gradle.kts" ] && [ ! -f "settings.gradle" ]; then
+              printf 'rootProject.name = "Lucky2D"\ninclude(":app")\n' > settings.gradle.kts
+            elif [ -f "settings.gradle.kts" ]; then
+              grep -q ':app' settings.gradle.kts || echo 'include(":app")' >> settings.gradle.kts
+            fi
           fi
+          cat settings.gradle.kts 2>/dev/null || true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -46,6 +51,7 @@ jobs:
       - name: Build Native Android APK
         run: |
           chmod +x gradlew
+          ./gradlew tasks --all | grep -i assemble || true
           ./gradlew :app:assembleDebug
 
       - name: Publish APK to GitHub Releases
