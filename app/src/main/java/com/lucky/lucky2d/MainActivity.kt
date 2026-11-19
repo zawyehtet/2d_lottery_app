@@ -7,382 +7,237 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import com.lucky.lucky2d.utils.CleanAudio2D
-import java.io.IOException
-import java.net.URLDecoder
 
 class MainActivity : Activity() {
+    private var webView: WebView? = null
 
-    private lateinit var webView: WebView
-
-    companion object {
-        private const val ASSET_HOST = "appassets.androidplatform.net"
-        private const val START_URL = "https://$ASSET_HOST/index.html"
-        private const val PKG_VIBER = "com.viber.voip"
-        private const val PKG_MESSENGER = "com.facebook.orca"
-    }
-
-    inner class AndroidShareBridge(private val activity: Activity) {
-
-        private fun copyToClipboard(text: String) {
-            try {
-                val clipboard =
-                    activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                clipboard?.setPrimaryClip(ClipData.newPlainText("Lucky2D", text))
-            } catch (_: Exception) {
-                // Ignore clipboard exceptions on restricted devices
-            }
-        }
-
-        @JavascriptInterface
-        fun shareSms(phone: String, text: String) {
-            val cleanPhone = phone.trim()
-            activity.runOnUiThread {
-                try {
-                    val sendToIntent = Intent(
-                        Intent.ACTION_SENDTO,
-                        Uri.parse("smsto:${Uri.encode(cleanPhone)}")
-                    ).apply {
-                        putExtra("sms_body", text)
-                    }
-                    activity.startActivity(sendToIntent)
-                } catch (_: ActivityNotFoundException) {
-                    try {
-                        val fallbackIntent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse("sms:${Uri.encode(cleanPhone)}?body=${Uri.encode(text)}")
-                        ).apply {
-                            putExtra("sms_body", text)
-                        }
-                        activity.startActivity(fallbackIntent)
-                    } catch (_: Exception) {
-                        Toast.makeText(activity, "SMS App ကို ဖွင့်မရပါ", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (_: Exception) {
-                    Toast.makeText(activity, "SMS App ကို ဖွင့်မရပါ", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-
-        @JavascriptInterface
-        fun shareViber(text: String) {
-            activity.runOnUiThread {
-                copyToClipboard(text)
-                try {
-                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, text)
-                        setPackage(PKG_VIBER)
-                    }
-                    if (sendIntent.resolveActivity(activity.packageManager) != null) {
-                        activity.startActivity(sendIntent)
-                        return@runOnUiThread
-                    }
-                } catch (_: Exception) {
-                    // Fallback to package launch below
-                }
-
-                try {
-                    val launchIntent = activity.packageManager.getLaunchIntentForPackage(PKG_VIBER)
-                    if (launchIntent != null) {
-                        activity.startActivity(launchIntent)
-                        return@runOnUiThread
-                    }
-                } catch (_: Exception) {
-                    // Ignore and show toast below
-                }
-
-                Toast.makeText(activity, "Viber ထည့်သွင်းထားခြင်း မရှိပါ", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        @JavascriptInterface
-        fun shareMessenger(text: String) {
-            activity.runOnUiThread {
-                copyToClipboard(text)
-                try {
-                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, text)
-                        setPackage(PKG_MESSENGER)
-                    }
-                    if (sendIntent.resolveActivity(activity.packageManager) != null) {
-                        activity.startActivity(sendIntent)
-                        return@runOnUiThread
-                    }
-                } catch (_: Exception) {
-                    // Fallback to package launch below
-                }
-
-                try {
-                    val launchIntent =
-                        activity.packageManager.getLaunchIntentForPackage(PKG_MESSENGER)
-                    if (launchIntent != null) {
-                        activity.startActivity(launchIntent)
-                        return@runOnUiThread
-                    }
-                } catch (_: Exception) {
-                    // Ignore and show toast below
-                }
-
-                Toast.makeText(activity, "Messenger ထည့်သွင်းထားခြင်း မရှိပါ", Toast.LENGTH_SHORT)
-                    .show()
-            }
-        }
-    }
-
-    @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         // CleanAudio2D initialization as the very first line
         CleanAudio2D.init(applicationContext)
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            @Suppress("DEPRECATION")
-            window.statusBarColor = Color.parseColor("#235347")
-        }
-
-        webView = WebView(this).apply {
+        val wv = WebView(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            setBackgroundColor(Color.parseColor("#F4F7F6"))
-        }
-
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            allowFileAccess = true
-            cacheMode = WebSettings.LOAD_NO_CACHE
-            mediaPlaybackRequiresUserGesture = false
-            useWideViewPort = true
-            loadWithOverviewMode = true
-            setSupportZoom(false)
-            builtInZoomControls = false
-            displayZoomControls = false
-        }
-
-        // Clear any stale cached HTML/JS/CSS before loading bundled assets
-        webView.clearCache(true)
-        webView.clearHistory()
-
-        webView.addJavascriptInterface(AndroidShareBridge(this), "AndroidShare")
-        webView.webChromeClient = WebChromeClient()
-        webView.webViewClient = object : WebViewClient() {
-
-            override fun shouldInterceptRequest(
-                view: WebView?,
-                request: WebResourceRequest?
-            ): WebResourceResponse? {
-                val uri = request?.url ?: return super.shouldInterceptRequest(view, request)
-                if (uri.host != ASSET_HOST) {
-                    return super.shouldInterceptRequest(view, request)
-                }
-
-                var assetPath = (uri.path ?: "").removePrefix("/")
-                if (assetPath.isEmpty()) {
-                    assetPath = "index.html"
-                }
-
-                val stream = try {
-                    assets.open(assetPath)
-                } catch (_: IOException) {
-                    try {
-                        assets.open("public/$assetPath")
-                    } catch (_: IOException) {
-                        if (!assetPath.contains('.')) {
-                            try {
-                                assets.open("index.html")
-                            } catch (_: IOException) {
-                                null
-                            }
-                        } else {
-                            null
-                        }
-                    }
-                }
-
-                if (stream == null) {
-                    return super.shouldInterceptRequest(view, request)
-                }
-
-                val mimeType = resolveMimeType(assetPath)
-                val encoding = if (isTextMime(mimeType)) "UTF-8" else null
-                val headers = mapOf(
-                    "Cache-Control" to "no-store, no-cache, must-revalidate, max-age=0",
-                    "Pragma" to "no-cache",
-                    "Expires" to "0"
-                )
-                return WebResourceResponse(mimeType, encoding, 200, "OK", headers, stream)
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                allowFileAccess = true
+                allowContentAccess = true
+                @Suppress("DEPRECATION")
+                allowFileAccessFromFileURLs = true
+                @Suppress("DEPRECATION")
+                allowUniversalAccessFromFileURLs = true
+                cacheMode = WebSettings.LOAD_NO_CACHE
+                mediaPlaybackRequiresUserGesture = false
             }
-
-            override fun shouldOverrideUrlLoading(
-                view: WebView?,
-                request: WebResourceRequest?
-            ): Boolean {
-                val uri = request?.url ?: return false
-                val scheme = uri.scheme?.lowercase() ?: return false
-
-                if (scheme == "https" && uri.host == ASSET_HOST) {
-                    return false
+            clearCache(true)
+            addJavascriptInterface(AndroidShareBridge(this@MainActivity), "AndroidShareBridge")
+            webChromeClient = WebChromeClient()
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): Boolean {
+                    val uri = request?.url ?: return false
+                    return handleExternalUrl(uri)
                 }
 
-                if (scheme in setOf("sms", "smsto", "viber", "fb-messenger", "tel", "mailto", "intent")) {
-                    launchExternalUri(uri)
-                    return true
+                @Deprecated("Deprecated in Java")
+                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                    if (url.isNullOrBlank()) return false
+                    return handleExternalUrl(Uri.parse(url))
                 }
-
-                if (scheme == "http" || scheme == "https") {
-                    launchExternalUri(uri)
-                    return true
-                }
-
-                return false
             }
         }
 
-        setContentView(webView)
-        webView.loadUrl(START_URL)
+        webView = wv
+        setContentView(wv)
+        wv.loadUrl("file:///android_asset/index.html")
     }
 
-    private fun launchExternalUri(uri: Uri) {
-        val scheme = uri.scheme?.lowercase() ?: ""
-        try {
-            if (scheme == "intent") {
-                val intent = Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
-                startActivity(intent)
-                return
+    private fun handleExternalUrl(uri: Uri): Boolean {
+        val scheme = uri.scheme?.lowercase() ?: return false
+        if (scheme == "file" || scheme == "about" || scheme == "data" || scheme == "javascript") {
+            return false
+        }
+        val host = uri.host?.lowercase() ?: ""
+        if ((scheme == "http" || scheme == "https") && (host == "localhost" || host == "127.0.0.1")) {
+            return false
+        }
+
+        return try {
+            val intent = if (scheme == "intent") {
+                Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
+            } else {
+                Intent(Intent.ACTION_VIEW, uri)
             }
-
-            if (scheme == "sms" || scheme == "smsto") {
-                val rawPart = uri.schemeSpecificPart ?: ""
-                val phone = rawPart.substringBefore("?")
-                val body = extractQueryParam(uri.encodedQuery, "body")
-
-                val sendToUri = Uri.parse("smsto:${Uri.encode(phone)}")
-                val sendToIntent = Intent(Intent.ACTION_SENDTO, sendToUri).apply {
-                    if (!body.isNullOrEmpty()) {
-                        putExtra("sms_body", body)
-                    }
-                }
-                try {
-                    startActivity(sendToIntent)
-                    return
-                } catch (_: ActivityNotFoundException) {
-                    val viewIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-                        if (!body.isNullOrEmpty()) {
-                            putExtra("sms_body", body)
-                        }
-                    }
-                    startActivity(viewIntent)
-                    return
-                }
-            }
-
-            startActivity(Intent(Intent.ACTION_VIEW, uri))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            true
         } catch (_: ActivityNotFoundException) {
-            val msg = when (scheme) {
-                "viber" -> "Viber ထည့်သွင်းထားခြင်း မရှိပါ"
-                "fb-messenger" -> "Messenger ထည့်သွင်းထားခြင်း မရှိပါ"
-                else -> "သက်ဆိုင်ရာ App ကို ဖွင့်မရပါ"
-            }
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "App ကို ဖွင့်၍မရပါ", Toast.LENGTH_SHORT).show()
+            true
         } catch (_: Exception) {
-            Toast.makeText(this, "လင့်ခ် ဖွင့်ရာတွင် အဆင်မပြေပါ", Toast.LENGTH_SHORT).show()
+            true
         }
     }
 
-    private fun extractQueryParam(encodedQuery: String?, key: String): String? {
-        if (encodedQuery.isNullOrEmpty()) return null
-        for (pair in encodedQuery.split("&")) {
-            val idx = pair.indexOf('=')
-            if (idx > 0) {
-                val k = pair.substring(0, idx)
-                if (k == key) {
-                    return try {
-                        URLDecoder.decode(pair.substring(idx + 1), "UTF-8")
+    inner class AndroidShareBridge(private val activity: Activity) {
+        @JavascriptInterface
+        fun shareSms(phoneNumber: String, message: String) {
+            activity.runOnUiThread {
+                val cleanPhone = phoneNumber.trim()
+                val text = message.trim()
+                try {
+                    val smsUri = Uri.parse("smsto:${Uri.encode(cleanPhone)}")
+                    val intent = Intent(Intent.ACTION_SENDTO, smsUri).apply {
+                        putExtra("sms_body", text)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    activity.startActivity(intent)
+                } catch (_: Exception) {
+                    try {
+                        val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("sms:${Uri.encode(cleanPhone)}")).apply {
+                            putExtra("sms_body", text)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        activity.startActivity(fallback)
                     } catch (_: Exception) {
-                        pair.substring(idx + 1)
+                        openGenericShare(text, "SMS")
                     }
                 }
             }
         }
-        return null
-    }
 
-    private fun resolveMimeType(path: String): String {
-        val lower = path.lowercase()
-        return when {
-            lower.endsWith(".html") || lower.endsWith(".htm") -> "text/html"
-            lower.endsWith(".js") || lower.endsWith(".mjs") -> "application/javascript"
-            lower.endsWith(".css") -> "text/css"
-            lower.endsWith(".json") -> "application/json"
-            lower.endsWith(".png") -> "image/png"
-            lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
-            lower.endsWith(".webp") -> "image/webp"
-            lower.endsWith(".svg") -> "image/svg+xml"
-            lower.endsWith(".ico") -> "image/x-icon"
-            lower.endsWith(".mp3") -> "audio/mpeg"
-            lower.endsWith(".ogg") -> "audio/ogg"
-            lower.endsWith(".wav") -> "audio/wav"
-            lower.endsWith(".ttf") -> "font/ttf"
-            lower.endsWith(".woff") -> "font/woff"
-            lower.endsWith(".woff2") -> "font/woff2"
-            else -> "application/octet-stream"
+        @JavascriptInterface
+        fun shareViber(phoneNumber: String, message: String) {
+            activity.runOnUiThread {
+                val text = message.trim()
+                copyToClipboard(text)
+                try {
+                    val viberIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                        setPackage("com.viber.voip")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    activity.startActivity(viberIntent)
+                } catch (_: ActivityNotFoundException) {
+                    try {
+                        val uriIntent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("viber://forward?text=${Uri.encode(text)}")
+                        ).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        activity.startActivity(uriIntent)
+                    } catch (_: Exception) {
+                        openGenericShare(text, "Viber")
+                    }
+                } catch (_: Exception) {
+                    openGenericShare(text, "Viber")
+                }
+            }
         }
-    }
 
-    private fun isTextMime(mime: String): Boolean {
-        return mime.startsWith("text/") ||
-            mime == "application/javascript" ||
-            mime == "application/json" ||
-            mime == "image/svg+xml"
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (::webView.isInitialized) {
-            webView.onResume()
+        @JavascriptInterface
+        fun shareMessenger(phoneNumber: String, message: String) {
+            activity.runOnUiThread {
+                val text = message.trim()
+                copyToClipboard(text)
+                try {
+                    val messengerIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                        setPackage("com.facebook.orca")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    activity.startActivity(messengerIntent)
+                } catch (_: ActivityNotFoundException) {
+                    try {
+                        val liteIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text)
+                            setPackage("com.facebook.mlite")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        activity.startActivity(liteIntent)
+                    } catch (_: ActivityNotFoundException) {
+                        try {
+                            val uriIntent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("fb-messenger://share/?link=${Uri.encode(text)}")
+                            ).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            activity.startActivity(uriIntent)
+                        } catch (_: Exception) {
+                            openGenericShare(text, "Messenger")
+                        }
+                    } catch (_: Exception) {
+                        openGenericShare(text, "Messenger")
+                    }
+                } catch (_: Exception) {
+                    openGenericShare(text, "Messenger")
+                }
+            }
         }
-    }
 
-    override fun onPause() {
-        if (::webView.isInitialized) {
-            webView.onPause()
+        private fun copyToClipboard(text: String) {
+            try {
+                val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                clipboard?.setPrimaryClip(ClipData.newPlainText("Lucky2D Slip", text))
+            } catch (_: Exception) {
+                // Ignore clipboard failure
+            }
         }
-        super.onPause()
+
+        private fun openGenericShare(text: String, title: String) {
+            try {
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
+                val chooser = Intent.createChooser(sendIntent, title).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(chooser)
+            } catch (_: Exception) {
+                Toast.makeText(activity, "$title App မတွေ့ပါ", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     @Deprecated("Deprecated in Java")
-    @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) {
-            webView.goBack()
+        val wv = webView
+        if (wv != null && wv.canGoBack()) {
+            wv.goBack()
         } else {
+            @Suppress("DEPRECATION")
             super.onBackPressed()
         }
     }
 
     override fun onDestroy() {
-        if (::webView.isInitialized) {
-            webView.stopLoading()
-            webView.destroy()
-        }
+        webView?.destroy()
+        webView = null
         super.onDestroy()
     }
 }

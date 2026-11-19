@@ -59,13 +59,6 @@ export function fmtThousands(amount: number): string {
   return new Intl.NumberFormat('en-US').format(amount);
 }
 
-export interface CommitVoucherResult {
-  voucher: Voucher;
-  agentSlipCount: number;
-  totalAmount: number;
-  agent: Agent;
-}
-
 interface LotteryContextValue {
   currentScreen: Screen;
   navigateTo: (screen: Screen) => void;
@@ -113,7 +106,7 @@ interface LotteryContextValue {
   editEntryItem: (index: number, newNum: string, newAmt: number) => boolean;
   deleteEntryItem: (index: number) => boolean;
   clearEntryItems: () => void;
-  commitCurrentVoucher: () => CommitVoucherResult | null;
+  commitCurrentVoucher: () => Voucher | null;
   startNumberEntry: (agent: Agent) => void;
   voucherFilterAgent: string;
   setVoucherFilterAgent: (name: string) => void;
@@ -396,9 +389,9 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         name: cleanName,
         rate,
         mult,
-        phoneNumber: cleanPhone,
         date: toAsciiDigits(selectedDate),
         roundNumber: selectedSession,
+        phoneNumber: cleanPhone,
       };
       storage.insertOrUpdateAgentForSession(selectedDate, selectedSession, newAgent);
       setAgents(storage.loadAgents());
@@ -538,7 +531,7 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setEntryItems([]);
   }, []);
 
-  const commitCurrentVoucher = useCallback((): CommitVoucherResult | null => {
+  const commitCurrentVoucher = useCallback((): Voucher | null => {
     if (!hasRound) {
       showToast('အကြိမ်ရေ အရင်ထည့်ပါ');
       return null;
@@ -553,28 +546,20 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     const cleanDate = toAsciiDigits(selectedDate);
-    const currentAgent = agents.find((a) => a.id === entryAgent.id) || entryAgent;
     const sessionVouchers = vouchers.filter(
       (v) => toAsciiDigits(v.date) === cleanDate && v.session === selectedSession
     );
     const nextNo = (sessionVouchers.reduce((max, v) => Math.max(max, v.no), 0) || 0) + 1;
-    const agentSessionVouchers = sessionVouchers.filter(
-      (v) => v.agentId === currentAgent.id || v.agent === currentAgent.name
-    );
-    const agentSlipCount = agentSessionVouchers.length + 1;
-
-    const cleanItems = entryItems.map((item) => ({ ...item, n: toAsciiDigits(item.n) }));
-    const totalAmount = cleanItems.reduce((sum, item) => sum + item.a, 0);
 
     const newVoucher: Voucher = {
       id: Date.now(),
       no: nextNo,
-      agent: currentAgent.name,
-      agentId: currentAgent.id,
+      agent: entryAgent.name,
+      agentId: entryAgent.id,
       date: cleanDate,
       session: selectedSession,
       time: getTodayFormattedTime(),
-      items: cleanItems,
+      items: entryItems.map((item) => ({ ...item, n: toAsciiDigits(item.n) })),
     };
 
     setVouchers((prev) => {
@@ -586,13 +571,8 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setEntryItems([]);
     soundManager.playComplete();
     showToast(`ဘောင်ချာ (No.${nextNo}) သိမ်းဆည်းပြီးပါပြီ`);
-    return {
-      voucher: newVoucher,
-      agentSlipCount,
-      totalAmount,
-      agent: currentAgent,
-    };
-  }, [hasRound, entryAgent, entryItems, selectedDate, selectedSession, vouchers, agents, showToast]);
+    return newVoucher;
+  }, [hasRound, entryAgent, entryItems, selectedDate, selectedSession, vouchers, showToast]);
 
   const deleteVoucher = useCallback(
     (voucherId: number): boolean => {

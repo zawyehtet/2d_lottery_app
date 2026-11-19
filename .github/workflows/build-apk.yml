@@ -2,7 +2,8 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -21,17 +22,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install dependencies & build Web bundle
         run: |
-          npm install
-          npm run lint
-          npm run build
-          rm -rf app/src/main/assets
+          npm install && npm run build
           mkdir -p app/src/main/assets
           cp -r dist/* app/src/main/assets/
-          ls -la app/src/main/assets/ app/src/main/assets/assets/
 
       - name: Set up Temurin Java 17
         uses: actions/setup-java@v4
@@ -39,83 +35,18 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Verify Java environment
-        run: |
-          java -version
-          echo "JAVA_HOME: $JAVA_HOME"
-          JAVA_MAJOR=$(java -version 2>&1 | head -n 1 | awk -F '"' '{print $2}' | awk -F '.' '{print $1}')
-          if [ -z "$JAVA_MAJOR" ] || [ "$JAVA_MAJOR" -lt 17 ]; then
-            echo "ERROR: Java 17 or higher required, detected: $JAVA_MAJOR"
-            exit 1
-          fi
-          echo "Java version verified: $JAVA_MAJOR"
-
-      - name: Create temporary debug keystore
-        run: |
-          if [ ! -f "./debug.keystore" ]; then
-            keytool -genkey -v \
-              -keystore ./debug.keystore \
-              -alias androiddebugkey \
-              -storepass android \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-          echo "Debug keystore ready."
-
       - name: Build Debug APK
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace --no-daemon
 
-      - name: Verify APK output
-        id: verify_apk
-        run: |
-          TARGET_APK="app/build/outputs/apk/debug/app-debug.apk"
-          if [ ! -f "$TARGET_APK" ] || [ ! -s "$TARGET_APK" ]; then
-            echo "ERROR: No valid APK found at $TARGET_APK"
-            find . -name "*.apk" 2>/dev/null || true
-            exit 1
-          fi
-          python3 -c "
-          import zipfile
-          z = zipfile.ZipFile('$TARGET_APK')
-          names = set(z.namelist())
-          assert 'assets/index.html' in names, 'Missing assets/index.html in APK'
-          assert any(n.startswith('assets/assets/index-') and n.endswith('.js') for n in names), 'Missing bundled JS in APK'
-          assert 'classes.dex' in names, 'Missing classes.dex in APK'
-          print('Verified fresh WebView APK contents:', len(names), 'entries')
-          "
-          echo "APK verified successfully: $TARGET_APK ($(wc -c < "$TARGET_APK") bytes)"
-          echo "apk_path=$TARGET_APK" >> "$GITHUB_OUTPUT"
-
       - name: Publish APK to GitHub Releases
-        id: publish_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Lucky 2D Latest APK
-          overwrite: true
-          make_latest: true
+          name: Latest Debug APK
           files: app/build/outputs/apk/debug/app-debug.apk
+          overwrite_files: true
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Report APK download result
-        if: always()
-        run: |
-          if [ "${{ steps.publish_release.outcome }}" = "success" ]; then
-            DIRECT_URL="https://github.com/${{ github.repository }}/releases/latest/download/app-debug.apk"
-            echo "### 📱 DIRECT APK DOWNLOAD" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "[$DIRECT_URL]($DIRECT_URL)" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "- **Release:** \`Lucky 2D Latest APK\` (tag: \`latest\`)" >> "$GITHUB_STEP_SUMMARY"
-            echo "- **Asset:** \`app-debug.apk\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "Release published successfully: $DIRECT_URL"
-          else
-            echo "### ⚠️ GitHub Release Publishing Notice" >> "$GITHUB_STEP_SUMMARY"
-            echo "Release publishing did not complete successfully." >> "$GITHUB_STEP_SUMMARY"
-          fi

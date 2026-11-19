@@ -20,7 +20,16 @@ import {
 } from '../logic/patternAlgorithms';
 import { BetItem } from '../types';
 import { soundManager } from '../util/soundManager';
-import { QuickShareModal } from '../components/QuickShareModal';
+
+declare global {
+  interface Window {
+    AndroidShareBridge?: {
+      shareSms?: (phoneNumber: string, message: string) => void;
+      shareViber?: (phoneNumber: string, message: string) => void;
+      shareMessenger?: (phoneNumber: string, message: string) => void;
+    };
+  }
+}
 
 export const NumberEntryScreen: React.FC = () => {
   const {
@@ -64,9 +73,8 @@ export const NumberEntryScreen: React.FC = () => {
   const [editAmtInput, setEditAmtInput] = useState('');
   const [deletingItemIndex, setDeletingItemIndex] = useState<number | null>(null);
   const [quickShareData, setQuickShareData] = useState<{
-    agentName: string;
     phoneNumber: string;
-    shareText: string;
+    message: string;
   } | null>(null);
 
   const tableEndRef = useRef<HTMLDivElement>(null);
@@ -373,6 +381,47 @@ export const NumberEntryScreen: React.FC = () => {
   };
 
   const totalAmount = entryItems.reduce((sum, item) => sum + item.a, 0);
+
+  const handleQuickShareSms = () => {
+    if (!quickShareData) return;
+    soundManager.playClick();
+    const { phoneNumber, message } = quickShareData;
+    if (window.AndroidShareBridge?.shareSms) {
+      window.AndroidShareBridge.shareSms(phoneNumber, message);
+    } else {
+      window.location.href = `sms:${encodeURIComponent(phoneNumber)}?body=${encodeURIComponent(message)}`;
+    }
+    setQuickShareData(null);
+  };
+
+  const handleQuickShareViber = () => {
+    if (!quickShareData) return;
+    soundManager.playClick();
+    const { phoneNumber, message } = quickShareData;
+    if (window.AndroidShareBridge?.shareViber) {
+      window.AndroidShareBridge.shareViber(phoneNumber, message);
+    } else {
+      window.location.href = `viber://forward?text=${encodeURIComponent(message)}`;
+    }
+    setQuickShareData(null);
+  };
+
+  const handleQuickShareMessenger = () => {
+    if (!quickShareData) return;
+    soundManager.playClick();
+    const { phoneNumber, message } = quickShareData;
+    try {
+      navigator.clipboard?.writeText(message).catch(() => {});
+    } catch {
+      // Ignore clipboard fallback error
+    }
+    if (window.AndroidShareBridge?.shareMessenger) {
+      window.AndroidShareBridge.shareMessenger(phoneNumber, message);
+    } else {
+      window.location.href = `fb-messenger://share/?link=${encodeURIComponent(message)}`;
+    }
+    setQuickShareData(null);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-[#F4F7F6] select-none">
@@ -906,16 +955,9 @@ export const NumberEntryScreen: React.FC = () => {
                       entryAgent?.id === ag.id ? 'bg-emerald-50 text-[#235347] font-bold' : 'text-slate-800'
                     }`}
                   >
-                    <div className="flex flex-col items-start">
-                      <span>
-                        {ag.id}. {ag.name}
-                      </span>
-                      {ag.phoneNumber && ag.phoneNumber.trim() !== '' && (
-                        <span className="text-[11px] text-[#0A4D3C] font-medium">
-                          📞 {ag.phoneNumber.trim()}
-                        </span>
-                      )}
-                    </div>
+                    <span>
+                      {ag.id}. {ag.name}
+                    </span>
                     <span className="text-xs text-slate-500 font-medium">
                       ကော် {ag.rate}% | အဆ {ag.mult}
                     </span>
@@ -1014,14 +1056,19 @@ export const NumberEntryScreen: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setShowConfirmBetDialog(false);
-                  const result = commitCurrentVoucher();
-                  if (result) {
-                    const phone = (result.agent.phoneNumber || '').trim();
-                    if (phone !== '') {
+                  const selectedAgent =
+                    agents.find((a) => a.id === entryAgent?.id) || entryAgent;
+                  const savedVoucher = commitCurrentVoucher();
+                  if (savedVoucher) {
+                    const agentPhone = (selectedAgent?.phoneNumber || '').trim();
+                    if (agentPhone !== '') {
+                      const slipTotalAmount = savedVoucher.items.reduce(
+                        (sum, item) => sum + item.a,
+                        0
+                      );
                       setQuickShareData({
-                        agentName: result.agent.name,
-                        phoneNumber: phone,
-                        shareText: `No.${result.agentSlipCount}=${result.totalAmount}`,
+                        phoneNumber: agentPhone,
+                        message: `No.${savedVoucher.no}=${slipTotalAmount}`,
                       });
                     }
                   }
@@ -1031,6 +1078,54 @@ export const NumberEntryScreen: React.FC = () => {
                 အတည်ပြုသိမ်းမည်
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4B: Conditional Quick Share Modal (No.<latestSlipCount>=<slipTotalAmount>) */}
+      {quickShareData && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-slate-200">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl py-4 px-3 text-center">
+              <div className="font-mono font-black text-2xl text-[#235347] tracking-wide select-text">
+                {quickShareData.message}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={handleQuickShareSms}
+                className="py-2.5 bg-[#2E7D32] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                SMS
+              </button>
+              <button
+                type="button"
+                onClick={handleQuickShareViber}
+                className="py-2.5 bg-[#7360F2] hover:bg-[#5f4ce0] text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                Viber
+              </button>
+              <button
+                type="button"
+                onClick={handleQuickShareMessenger}
+                className="py-2.5 bg-[#0084FF] hover:bg-[#0073e6] text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                Messenger
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playClick();
+                setQuickShareData(null);
+              }}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
+            >
+              မလုပ်ပါ
+            </button>
           </div>
         </div>
       )}
@@ -1100,16 +1195,6 @@ export const NumberEntryScreen: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-      {/* MODAL 6: Conditional Quick-Share Modal */}
-      {quickShareData && (
-        <QuickShareModal
-          agentName={quickShareData.agentName}
-          phoneNumber={quickShareData.phoneNumber}
-          shareText={quickShareData.shareText}
-          onShowToast={showToast}
-          onClose={() => setQuickShareData(null)}
-        />
       )}
     </div>
   );

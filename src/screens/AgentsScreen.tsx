@@ -46,10 +46,7 @@ export const AgentsScreen: React.FC = () => {
     return agents.filter((agent) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
-      return (
-        agent.name.toLowerCase().includes(q) ||
-        (agent.phoneNumber || '').toLowerCase().includes(q)
-      );
+      return agent.name.toLowerCase().includes(q);
     });
   }, [agents, searchQuery]);
 
@@ -79,7 +76,7 @@ export const AgentsScreen: React.FC = () => {
 
     const rate = parseFloat(rateInput) || 0;
     const mult = parseInt(multInput, 10) || 80;
-    const phone = phoneInput.trim();
+    const phoneNumber = phoneInput.trim();
 
     if (editingAgent) {
       updateAgent({
@@ -87,10 +84,10 @@ export const AgentsScreen: React.FC = () => {
         name: nameInput.trim(),
         rate,
         mult,
-        phoneNumber: phone,
+        phoneNumber,
       });
     } else {
-      addAgent(nameInput.trim(), rate, mult, phone);
+      addAgent(nameInput.trim(), rate, mult, phoneNumber);
     }
 
     setShowAddModal(false);
@@ -177,9 +174,9 @@ export const AgentsScreen: React.FC = () => {
                             <span>•</span>
                             <span className="text-gray-600">x{agent.mult} ဆ</span>
                           </div>
-                          {agent.phoneNumber && agent.phoneNumber.trim() !== '' && (
-                            <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-[#0A4D3C] text-[11px] font-semibold border border-emerald-200/70">
-                              <span>📞 {agent.phoneNumber.trim()}</span>
+                          {(agent.phoneNumber || '').trim() !== '' && (
+                            <div className="text-xs text-gray-600 mt-0.5 font-mono">
+                              📞 {(agent.phoneNumber || '').trim()}
                             </div>
                           )}
                         </div>
@@ -337,7 +334,6 @@ export const AgentsScreen: React.FC = () => {
                 </label>
                 <input
                   type="tel"
-                  inputMode="tel"
                   placeholder="09xxxxxxxxx"
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
