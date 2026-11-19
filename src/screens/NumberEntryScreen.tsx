@@ -21,6 +21,16 @@ import {
 import { BetItem } from '../types';
 import { soundManager } from '../util/soundManager';
 
+declare global {
+  interface Window {
+    AndroidShareBridge?: {
+      shareSms?: (phone: string, text: string) => void;
+      shareViber?: (phone: string, text: string) => void;
+      shareMessenger?: (phone: string, text: string) => void;
+    };
+  }
+}
+
 export const NumberEntryScreen: React.FC = () => {
   const {
     selectedDate,
@@ -62,6 +72,10 @@ export const NumberEntryScreen: React.FC = () => {
   const [editNumInput, setEditNumInput] = useState('');
   const [editAmtInput, setEditAmtInput] = useState('');
   const [deletingItemIndex, setDeletingItemIndex] = useState<number | null>(null);
+  const [quickShareData, setQuickShareData] = useState<{
+    phone: string;
+    text: string;
+  } | null>(null);
 
   const tableEndRef = useRef<HTMLDivElement>(null);
 
@@ -367,6 +381,56 @@ export const NumberEntryScreen: React.FC = () => {
   };
 
   const totalAmount = entryItems.reduce((sum, item) => sum + item.a, 0);
+
+  const handleShareSms = () => {
+    if (!quickShareData) return;
+    soundManager.playClick();
+    const { phone, text } = quickShareData;
+    if (window.AndroidShareBridge?.shareSms) {
+      window.AndroidShareBridge.shareSms(phone, text);
+    } else {
+      window.location.href = `sms:${phone.replace(/\s+/g, '')}?body=${encodeURIComponent(text)}`;
+    }
+  };
+
+  const handleShareViber = () => {
+    if (!quickShareData) return;
+    soundManager.playClick();
+    const { phone, text } = quickShareData;
+    if (window.AndroidShareBridge?.shareViber) {
+      window.AndroidShareBridge.shareViber(phone, text);
+    } else {
+      window.location.href = `viber://forward?text=${encodeURIComponent(text)}`;
+    }
+  };
+
+  const handleShareMessenger = async () => {
+    if (!quickShareData) return;
+    soundManager.playClick();
+    const { phone, text } = quickShareData;
+    if (window.AndroidShareBridge?.shareMessenger) {
+      window.AndroidShareBridge.shareMessenger(phone, text);
+      return;
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    } catch {
+      // Ignore clipboard errors in restricted contexts
+    }
+    showToast(`${text} ကို ကူးယူပြီးပါပြီ`);
+    window.location.href = 'https://m.me/';
+  };
 
   return (
     <div className="flex flex-col h-screen bg-[#F4F7F6] select-none">
@@ -1001,7 +1065,21 @@ export const NumberEntryScreen: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setShowConfirmBetDialog(false);
-                  commitCurrentVoucher();
+                  const currentAgent =
+                    agents.find((a) => a.id === entryAgent?.id) || entryAgent;
+                  const savedVoucher = commitCurrentVoucher();
+                  if (savedVoucher) {
+                    const phone = (currentAgent?.phoneNumber || '').trim();
+                    if (phone !== '') {
+                      const slipTotal = Math.round(
+                        savedVoucher.items.reduce((sum, item) => sum + item.a, 0)
+                      );
+                      setQuickShareData({
+                        phone,
+                        text: `No.${savedVoucher.no}=${slipTotal}`,
+                      });
+                    }
+                  }
                 }}
                 className="flex-1 py-2.5 bg-[#2E7D32] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md"
               >
@@ -1075,6 +1153,54 @@ export const NumberEntryScreen: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: Conditional Quick Share Popup */}
+      {quickShareData && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-2xl border border-slate-200">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl py-4 px-3 text-center">
+              <div className="text-2xl font-black font-mono text-[#235347] tracking-wide select-text">
+                {quickShareData.text}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={handleShareSms}
+                className="py-2.5 px-2 bg-[#2E7D32] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                SMS
+              </button>
+              <button
+                type="button"
+                onClick={handleShareViber}
+                className="py-2.5 px-2 bg-[#7360F2] hover:bg-[#5f4ce0] text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                Viber
+              </button>
+              <button
+                type="button"
+                onClick={handleShareMessenger}
+                className="py-2.5 px-2 bg-[#0084FF] hover:bg-[#0070d9] text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                Messenger
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playClick();
+                setQuickShareData(null);
+              }}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
+            >
+              မလုပ်ပါ
+            </button>
           </div>
         </div>
       )}

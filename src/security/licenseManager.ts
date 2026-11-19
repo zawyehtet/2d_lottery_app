@@ -1,3 +1,5 @@
+export const BYPASS_ACTIVATION_FOR_REVIEW = false;
+
 export const SHARED_SECRET_2D = 'LUCKY2D_SHWEKHINMYAY_OFFLINE_SECRET_SALT_2026';
 export const SHARED_SECRET = 'Lucky3D_Super_Secret_Key_2026!#';
 
@@ -96,6 +98,7 @@ export async function verifyAndSaveLicense(inputKey: string): Promise<boolean> {
 }
 
 export function isAppActivated(): boolean {
+  if (BYPASS_ACTIVATION_FOR_REVIEW) return true;
   return localStorage.getItem(KEY_ACTIVATED) === 'true';
 }
 

@@ -71,7 +71,7 @@ interface LotteryContextValue {
   availableRounds: string[];
   hasRound: boolean;
   agents: Agent[];
-  addAgent: (name: string, rate: number, mult: number) => void;
+  addAgent: (name: string, rate: number, mult: number, phoneNumber?: string) => void;
   updateAgent: (agent: Agent) => void;
   deleteAgent: (agentId: number) => void;
   vouchers: Voucher[];
@@ -106,7 +106,7 @@ interface LotteryContextValue {
   editEntryItem: (index: number, newNum: string, newAmt: number) => boolean;
   deleteEntryItem: (index: number) => boolean;
   clearEntryItems: () => void;
-  commitCurrentVoucher: () => boolean;
+  commitCurrentVoucher: () => Voucher | null;
   startNumberEntry: (agent: Agent) => void;
   voucherFilterAgent: string;
   setVoucherFilterAgent: (name: string) => void;
@@ -379,9 +379,10 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Agent CRUD
   const addAgent = useCallback(
-    (name: string, rate: number, mult: number) => {
+    (name: string, rate: number, mult: number, phoneNumber?: string) => {
       const cleanName = name.trim();
       if (!cleanName) return;
+      const cleanPhone = (phoneNumber || '').trim();
       const nextId = (agents.reduce((max, a) => Math.max(max, a.id), 0) || 0) + 1;
       const newAgent: Agent = {
         id: nextId,
@@ -390,8 +391,9 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         mult,
         date: toAsciiDigits(selectedDate),
         roundNumber: selectedSession,
+        ...(cleanPhone ? { phoneNumber: cleanPhone } : {}),
       };
-      const updated = storage.insertOrUpdateAgentForSession(selectedDate, selectedSession, newAgent);
+      storage.insertOrUpdateAgentForSession(selectedDate, selectedSession, newAgent);
       setAgents(storage.loadAgents());
       soundManager.playSave();
       showToast('ကော်မရှင် အသစ် ထည့်သွင်းပြီးပါပြီ');
@@ -525,18 +527,18 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setEntryItems([]);
   }, []);
 
-  const commitCurrentVoucher = useCallback((): boolean => {
+  const commitCurrentVoucher = useCallback((): Voucher | null => {
     if (!hasRound) {
       showToast('အကြိမ်ရေ အရင်ထည့်ပါ');
-      return false;
+      return null;
     }
     if (!entryAgent) {
       showToast('ထိုးသူ ရွေးချယ်ပါ');
-      return false;
+      return null;
     }
     if (entryItems.length === 0) {
       showToast('ထိုးမည့် ဂဏန်းများ ထည့်သွင်းပါ');
-      return false;
+      return null;
     }
 
     const cleanDate = toAsciiDigits(selectedDate);
@@ -565,7 +567,7 @@ export const LotteryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setEntryItems([]);
     soundManager.playComplete();
     showToast(`ဘောင်ချာ (No.${nextNo}) သိမ်းဆည်းပြီးပါပြီ`);
-    return true;
+    return newVoucher;
   }, [hasRound, entryAgent, entryItems, selectedDate, selectedSession, vouchers, showToast]);
 
   const deleteVoucher = useCallback(

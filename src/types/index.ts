@@ -17,6 +17,7 @@ export interface Agent {
   mult: number;
   date: string;
   roundNumber: string;
+  phoneNumber?: string;
 }
 
 export interface Session {

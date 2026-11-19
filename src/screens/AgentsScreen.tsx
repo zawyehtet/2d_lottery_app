@@ -39,6 +39,7 @@ export const AgentsScreen: React.FC = () => {
   const [nameInput, setNameInput] = useState('');
   const [rateInput, setRateInput] = useState('15');
   const [multInput, setMultInput] = useState('80');
+  const [phoneInput, setPhoneInput] = useState('');
 
   // Filtered agents
   const filteredAgents = useMemo(() => {
@@ -54,6 +55,7 @@ export const AgentsScreen: React.FC = () => {
     setNameInput('');
     setRateInput('15');
     setMultInput('80');
+    setPhoneInput('');
     setEditingAgent(null);
     setShowAddModal(true);
   };
@@ -63,6 +65,7 @@ export const AgentsScreen: React.FC = () => {
     setNameInput(agent.name);
     setRateInput(agent.rate.toString());
     setMultInput(agent.mult.toString());
+    setPhoneInput(agent.phoneNumber || '');
     setEditingAgent(agent);
     setShowAddModal(true);
   };
@@ -73,6 +76,7 @@ export const AgentsScreen: React.FC = () => {
 
     const rate = parseFloat(rateInput) || 0;
     const mult = parseInt(multInput, 10) || 80;
+    const cleanPhone = phoneInput.trim();
 
     if (editingAgent) {
       updateAgent({
@@ -80,9 +84,10 @@ export const AgentsScreen: React.FC = () => {
         name: nameInput.trim(),
         rate,
         mult,
+        phoneNumber: cleanPhone || undefined,
       });
     } else {
-      addAgent(nameInput.trim(), rate, mult);
+      addAgent(nameInput.trim(), rate, mult, cleanPhone || undefined);
     }
 
     setShowAddModal(false);
@@ -169,6 +174,11 @@ export const AgentsScreen: React.FC = () => {
                             <span>•</span>
                             <span className="text-gray-600">x{agent.mult} ဆ</span>
                           </div>
+                          {agent.phoneNumber && agent.phoneNumber.trim() !== '' && (
+                            <div className="text-xs text-gray-600 font-mono mt-0.5">
+                              📞 {agent.phoneNumber.trim()}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -316,6 +326,19 @@ export const AgentsScreen: React.FC = () => {
                   />
                   <span className="text-sm font-bold text-gray-600">ဆ</span>
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-1">
+                  ဖုန်းနံပါတ် (Optional)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="09xxxxxxxxx"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#235347]"
+                />
               </div>
             </div>
 
