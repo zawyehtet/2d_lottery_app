@@ -1,61 +1,15 @@
-# Lucky2D (မြန်မာ့ ၂ လုံးထီ စာရင်းကိုင် စနစ်)
+# Lucky2D (Pure Native Android — Kotlin + Jetpack Compose)
 
-Lucky2D သည် မြန်မာ့ ၂ လုံးထီ ဒိုင်များနှင့် ကိုယ်စားလှယ်များအတွက် သီးသန့်ရေးဆွဲထားသော စာရင်းကိုင်နှင့် စီမံခန့်ခွဲမှု Web Application ဖြစ်ပါသည်။ မူလ Android အက်ပ် (zawyehtet/2d_lottery_app) မှ ခေတ်မီ React 19 + TypeScript + Vite + Tailwind CSS v4 သို့ အဆင့်မြှင့်တင်ထားပြီး လုပ်ဆောင်ချက်များအားလုံးကို အပြည့်အစုံ ထည့်သွင်းထားပါသည်။
+Lucky2D is a 100% offline, pure native Android Kotlin + Jetpack Compose 2D ledger and agent management application.
 
-## အဓိက လုပ်ဆောင်ချက်များ (Key Features)
+## Architecture & Tech Stack
+- **Language**: Kotlin 2.0
+- **UI**: Jetpack Compose + Material 3 + Navigation Compose
+- **State**: Lifecycle ViewModel (`LotteryViewModel`)
+- **Offline Storage**: Local JSON files + SharedPreferences via Gson (`LuckyRepository`)
+- **Audio & Haptics**: Native `SoundPool` (`CleanAudio2D`) with raw sound resources
+- **Security**: Offline Device ID (SHA-256 of `ANDROID_ID`) & HMAC-SHA256 activation gate (`LicenseManager`)
 
-1. **ဂဏန်းထည့်သွင်းခြင်း (Number Entry & Fast Bet Input)**
-   - ကီးဘုတ်မှ ရိုက်ထည့်ခြင်း သို့မဟုတ် ခလုတ်ခုံမှ အလွယ်တကူ ရိုက်ထည့်နိုင်ခြင်း
-   - **Mode 1 အမြန်ရိုက်နည်း**: ဥပမာ `01.78=500` (ဒဲ့), `01.78R500` (R အပြန်ပါ), `01.78=500/100` (ဒဲ့/အပြန် ခွဲထိုး)
-   - **Mode 2 အမြန်ရိုက်နည်း**:
-     - `5a500` (၅ အပါ ၅၀၀)
-     - `6b600` (၆ ဘရိတ် ၆၀၀)
-     - `1t500` (၁ ထိပ် ၅၀၀)
-     - `1w500` (၁ နောက် ၅၀၀)
-     - `p3500` (၃ ပါဝါ ၅၀၀)
-     - `n7500` (၇ နက္ခတ် ၅၀၀)
-     - `s500` (အပူး ၅၀၀)
-     - `x200` (ညီအစ်ကို ၂၀၀)
-     - `123k500` (၁၂၃ ခွေ ၅၀၀)
-   - မရဂဏန်း (ပိတ်ဂဏန်း) စစ်ဆေးခြင်းနှင့် ပမာဏ ကန့်သတ်ချက် စစ်ဆေးခြင်း
-
-2. **ကိုယ်စားလှယ်များ စီမံခြင်း (Agent Management)**
-   - ကိုယ်စားလှယ်အလိုက် ကော်မရှင်နှုန်း (Commission %) နှင့် အမြှောက်ဆ (Multiplier) သတ်မှတ်ခြင်း
-   - ရောင်းကြေး၊ ကော်မရှင်၊ အသားတင်ကျန်ငွေ၊ ဘောင်ချာအရေအတွက်နှင့် ပေါက်ကြေးများကို Real-time ကြည့်ရှုနိုင်ခြင်း
-
-3. **ဂဏန်းများ စာရင်း (100 Numbers Real-time Summary)**
-   - ၀၀ မှ ၉၉ အထိ ထိုးထားသော ငွေပမာဏများကို စာရင်းဇယားဖြင့် ကြည့်ရှုနိုင်ခြင်း
-   - ပေါက်ဂဏန်းအား အဝါ/အနီ ရောင်ဖြင့် ထင်ရှားစွာ ပြသပေးခြင်း
-   - ဂဏန်းတစ်ခုချင်းစီအပေါ် မည်သည့်ကိုယ်စားလှယ်က မည်မျှထိုးထားသည်ကို အသေးစိတ် ကြည့်ရှုနိုင်ခြင်း
-
-4. **ဘရိတ်နှင့် တင်ကွက် (Brake & Layoff Management)**
-   - ဘရိတ်သတ်မှတ်ချက် (Brake Limit) ကျော်လွန်သော ဂဏန်းများကို အပြင်သို့ တင်ကွက်ထုတ်နိုင်ခြင်း
-   - "အားလုံးတင်မည်" သို့မဟုတ် "အကွက် ၃၀ တင်မည်" စနစ်
-   - လက်ခံကွက် နှင့် တင်ကွက် (၂) ကော်လံ ခွဲခြားပြသခြင်း
-   - အချိန်ပိုင်း စာရင်းချုပ်အား စစ်ဆေးပြီး ရက်ချုပ်သို့ သိမ်းဆည်းနိုင်ခြင်း
-
-5. **ဘောင်ချာများ (Vouchers Management)**
-   - ထိုးပြီးသော ဘောင်ချာများကို အချိန်အလိုက် စီတန်းပြသခြင်း
-   - ဘောင်ချာတစ်ခုချင်းစီအား Viber / Telegram / SMS သို့ ပေးပို့ရန် စာသားအဖြစ် ကူးယူနိုင်ခြင်း (Copy to Clipboard)
-   - ဂဏန်းတစ်ခုချင်း ပြင်ဆင်/ဖျက်ခြင်းနှင့် ဘောင်ချာတစ်ခုလုံး ဖျက်ခြင်း
-
-6. **ကိုယ်စားလှယ် စာရင်းရှင်းတမ်း (Agent Settlement)**
-   - အချိန်ပိုင်းအလိုက် ကိုယ်စားလှယ်တစ်ဦးချင်းစီ၏ စာရင်းရှင်းတမ်း (ဒိုင်မှရရန် / ဒိုင်မှပေးရန်) ကို အလိုအလျောက် တွက်ချက်ပြသခြင်း
-   - တစ်ဦးချင်းစီအတွက် စာရင်းရှင်းတမ်း စာသားကူးယူနိုင်ခြင်း
-
-7. **ရက်ချုပ် မှတ်တမ်းများ (Settlement Ledger)**
-   - အပိုင်းအလိုက် ရက်ချုပ်များနှင့် နေ့စဉ်ရက်ချုပ်များ သိမ်းဆည်းခြင်း
-   - အမြတ်/အရှုံး (Profit & Loss) စာရင်းချုပ်များကို CSV ဖိုင်အဖြစ် ထုတ်ယူနိုင်ခြင်း (Export CSV)
-   - နေ့စဉ် စာရင်းချုပ် အကျဉ်းချုပ် စာသား ကူးယူနိုင်ခြင်း
-
-8. **စက်ပစ္စည်း လိုင်စင် (Offline Device Activation)**
-   - အင်တာနက်မလိုဘဲ စက်ပစ္စည်း ID နှင့် HMAC-SHA256 လိုင်စင်ကုဒ်ဖြင့် အသက်သွင်းနိုင်သည့် လုံခြုံရေးစနစ်
-
-## နည်းပညာ (Tech Stack)
-
-- **Framework**: React 19 + TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS v4
-- **Icons**: Lucide React
-- **Sound**: Web Audio API + HTML5 Audio fallback
-- **Storage**: LocalStorage with schema migrations
+## Build & Release
+- **Local / CI Build**: `./gradlew assembleDebug` (JDK 17, `compileSdk = 34`, `minSdk = 24`, `targetSdk = 34`)
+- **CI/CD**: `.github/workflows/build-apk.yml` builds `app/build/outputs/apk/debug/app-debug.apk` on push to `main` and publishes it to GitHub Releases (`latest`).
